@@ -3,7 +3,7 @@
 //               (original Lisp lexer does not work properly anyway [wrong folding,
 //               wrong highlighting])
 //
-// Copyright © Menhirs NV. All rights reserved. 
+// Copyright Â© Menhirs NV. All rights reserved.
 
 //HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
 

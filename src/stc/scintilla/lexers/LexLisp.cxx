@@ -39,109 +39,146 @@ static inline bool isLispOperator(const char ch)
 {
     return ((ch == '(' || ch == ')' || ch == '\''));
 }
-
 static inline bool isLispWordstart(const char ch)
 {
-    return isascii(ch) && ch != ';'  && !isspacechar(ch) && !isLispOperator(ch) &&  ch != '\"';
+    return ch != ';'  && !isspacechar(ch) && !isLispOperator(ch) &&  ch != '\"';
 }
-
 static inline bool isLispWordEnd(const char ch)
 {
     return (isspacechar(ch) || isLispOperator(ch) || ch == '\"' || ch == ';'); // 'isspacechar()' includes 0xD and oxA and TAB
 }
-
-static int parseKeyFunctionLisp(Accessor &styler, unsigned int& pos, unsigned int lengthDoc)
+static inline bool isNewLine(const char ch)
 {
-    static const wxString s_defun  (wxT("defun"));            static const size_t l_defun(s_defun.Length());
-    static const wxString s_loadlsp(wxT("load"));             static const size_t l_loadlsp(s_loadlsp.Length());
-    static const wxString s_loaddcl(wxT("load_dialog"));      static const size_t l_loaddcl(s_loaddcl.Length());
-    static const wxString s_setvar (wxT("setvar"));           static const size_t l_setvar(s_setvar.Length());
+    return (ch == 0xD || ch == 0xA);
+}
+static inline bool isEndOfLine(const char ch)
+{
+    return (ch == 0xD || ch == 0xA || ch == 0x0);
+}
+static char gotoEndOfLine(Accessor &styler, unsigned int& pos)
+{
+    char ch = styler.SafeGetCharAt(++pos);
+    for (; !isEndOfLine(ch); )
+    {
+        ch = styler.SafeGetCharAt(++pos);
+    }
+    return ch;
+}
 
-    static const wxString s_cmdcall (wxT("command"));         static const size_t l_cmdcall(s_cmdcall.Length());
-    static const wxString s_cmdcalls(wxT("command-s"));       static const size_t l_cmdcalls(s_cmdcalls.Length());
-    static const wxString s_vlcmdf  (wxT("vl-cmdf"));         static const size_t l_vlcmdf(s_vlcmdf.Length());
+static int parseKeyFunctionLisp(Accessor &styler, int& pos, int lengthDoc)
+{
+    static const char* s_defun     = "defun";          static const size_t l_defun(5);
+    static const char* s_setvar    = "setvar";         static const size_t l_setvar(6);
+    static const char* s_loadlsp   = "load";           static const size_t l_loadlsp(4);
+    static const char* s_loaddcl   = "load_dialog";    static const size_t l_loaddcl(11);
 
-    static const wxString s_vl_prefix(wxT("vl-"));
-    static const wxString s_vlxdocexp(wxT("vl-doc-export"));  static const size_t l_vlxdocexp(s_vlxdocexp.Length());
-    static const wxString s_vlxdocimp(wxT("vl-doc-import"));  static const size_t l_vlxdocimp(s_vlxdocimp.Length());
-    static const wxString s_vlxdocset(wxT("vl-doc-set"));     static const size_t l_vlxdocset(s_vlxdocset.Length());
-    static const wxString s_vlxdocref(wxT("vl-doc-ref"));     static const size_t l_vlxdocref(s_vlxdocref.Length());
-    static const wxString s_vlxarximp(wxT("vl-arx-import"));  static const size_t l_vlxarximp(s_vlxarximp.Length());
+    static const char* s_cmdcall   = "command";        static const size_t l_cmdcall(7);
+    static const char* s_cmdcalls  = "command-s";      static const size_t l_cmdcalls(9);
+    static const char* s_vlcmdf    = "vl-cmdf";        static const size_t l_vlcmdf(7);
 
-    static const wxString s_vlbbset(wxT("vl-bb-set"));        static const size_t l_vlbbset(s_vlbbset.Length());
-    static const wxString s_vlbbref(wxT("vl-bb-ref"));        static const size_t l_vlbbref(s_vlbbref.Length());
+    static const char* s_vl_prefix = "vl-";            static const size_t l_vl_prefix(3);
+    static const char* s_vlxdocexp = "vl-doc-export";  static const size_t l_vlxdocexp(13);
+    static const char* s_vlxdocimp = "vl-doc-import";  static const size_t l_vlxdocimp(13);
+    static const char* s_vlxdocset = "vl-doc-set";     static const size_t l_vlxdocset(10);
+    static const char* s_vlxdocref = "vl-doc-ref";     static const size_t l_vlxdocref(10);
+    static const char* s_vlxarximp = "vl-arx-import";  static const size_t l_vlxarximp(13);
+
+    static const char* s_vlbbset   = "vl-bb-set";      static const size_t l_vlbbset(9);
+    static const char* s_vlbbref   = "vl-bb-ref";      static const size_t l_vlbbref(9);
 
     static const size_t l_min(4);
     static const size_t l_max(13);
+    static char  word[l_max + 2];
 
-    unsigned int initPos = pos;
-    // skip leading '('
-    char ch = styler.SafeGetCharAt(pos); //[pos];
-    if (ch == '(') // just skip leading '('
-    {
-        ch = styler.SafeGetCharAt(++pos); //[++pos];
-    }
-    // now skip white spaces
+    int initPos(++pos);
+    bool hasNewLines(false);
+
+    // skip leading '(' + skip white spaces
+    char ch = styler.SafeGetCharAt(pos);
     for (; isspacechar(ch) && (pos < lengthDoc); ) // 'isspacechar()' includes 0xD and oxA and TAB
     {
-        ch = styler.SafeGetCharAt(++pos); //[pos];
+        if (!hasNewLines)
+            hasNewLines = isNewLine(ch);
+        ch = styler.SafeGetCharAt(++pos);
+    }
+    ch = tolower(ch);
+    if ((ch != 'd') && (ch != 'l') && (ch != 's') && (ch != 'c') && (ch != 'v'))
+    {
+        if (hasNewLines)
+            pos = initPos;
+        return stateNoState;
     }
 
     // parse till next whitespace or ( or ) or ' or \n or \r
     // extract the word - check against key functions
-    wxString word; word.reserve(16);
-    for (; !isLispWordEnd(ch) && (pos < lengthDoc); )
+    *word = 0;
+    size_t l_word(0);
+    for (; !isLispWordEnd(ch) && (l_word < l_max) && (pos < lengthDoc); ++l_word)
     {
-        word += ch;
-        ch = styler.SafeGetCharAt(++pos); //[pos];
+        word[l_word] = tolower(ch);
+        ch = styler.SafeGetCharAt(++pos);
     }
-
-    const size_t l_word(word.Length());
+    if (hasNewLines)
+        pos = initPos;
     if ((l_word < l_min) || (l_word > l_max))
     {
-        pos = initPos + 1;
         return stateNoState;
     }
 
-    word.MakeLower();
+    word[l_word] = 0;
 
-    if ((l_word == l_defun)   && (word.compare(s_defun) == 0))
-        return stateIdDefun;
-    if ((l_word == l_loadlsp) && (word.compare(s_loadlsp) == 0))
-        return stateLspLoad;
-    if ((l_word == l_loaddcl) && (word.compare(s_loaddcl) == 0))
-        return stateDclLoad;
-    if ((l_word == l_setvar)  && (word.compare(s_setvar) == 0))
-        return stateLspSetvar;
-
-    if ((l_word == l_cmdcall)   && (word.compare(s_cmdcall) == 0))
-        return stateLspCmdCall;
-    if ((l_word == l_vlcmdf)    && (word.compare(s_vlcmdf) == 0))
-        return stateLspCmdCall;
-    if ((l_word == l_cmdcalls)  && (word.compare(s_cmdcalls) == 0))
-        return stateLspCmdCall;
-
-    if (word.Left(3).compare(s_vl_prefix) != 0)
+    if (*word == 'd')
+    {
+        if ((l_word == l_defun)     && (strcmp(word, s_defun)    == 0))
+            return stateIdDefun;
         return stateNoState;
-
-    // vl-doc-xxx
-    if ((l_word == l_vlxdocexp) && (word.compare(s_vlxdocexp) == 0))
-        return stateLspVlx;
-    if ((l_word == l_vlxdocimp) && (word.compare(s_vlxdocimp) == 0))
-        return stateLspVlx;
-    if ((l_word == l_vlxdocset) && (word.compare(s_vlxdocset) == 0))
-        return stateLspVlx;
-    if ((l_word == l_vlxdocref) && (word.compare(s_vlxdocref) == 0))
-        return stateLspVlx;
-    if ((l_word == l_vlxarximp) && (word.compare(s_vlxarximp) == 0))
-        return stateLspVlx;
-    // vl-bb-set/ref
-    if ((l_word == l_vlbbset) && (word.compare(s_vlbbset) == 0))
-        return stateLspBB;
-    if ((l_word == l_vlbbref) && (word.compare(s_vlbbref) == 0))
-        return stateLspBB;
-
-    pos = initPos + 1;
+    }
+    if (*word == 's')
+    {
+        if ((l_word == l_setvar)    && (strcmp(word, s_setvar)   == 0))
+            return stateLspSetvar;
+        return stateNoState;
+    }
+    if (*word == 'l')
+    {
+        if ((l_word == l_loadlsp)   && (strcmp(word, s_loadlsp)  == 0))
+            return stateLspLoad;
+        if ((l_word == l_loaddcl)   && (strcmp(word, s_loaddcl)  == 0))
+            return stateDclLoad;
+        return stateNoState;
+    }
+    if (*word == 'c')
+    {
+        if ((l_word == l_cmdcall)   && (strcmp(word, s_cmdcall)  == 0))
+            return stateLspCmdCall;
+        if ((l_word == l_cmdcalls)  && (strcmp(word, s_cmdcalls) == 0))
+            return stateLspCmdCall;
+        return stateNoState;
+    }
+    if (*word == 'v')
+    {
+        if ((l_word == l_vlcmdf)    && (strcmp(word, s_vlcmdf)   == 0))
+            return stateLspCmdCall;
+    
+        if (strncmp(word, s_vl_prefix, l_vl_prefix) == 0)
+        {
+            if ((l_word == l_vlxdocexp) && (strcmp(word, s_vlxdocexp) == 0))
+                return stateLspVlx;
+            if ((l_word == l_vlxdocimp) && (strcmp(word, s_vlxdocimp) == 0))
+                return stateLspVlx;
+            if ((l_word == l_vlxdocset) && (strcmp(word, s_vlxdocset) == 0))
+                return stateLspVlx;
+            if ((l_word == l_vlxdocref) && (strcmp(word, s_vlxdocref) == 0))
+                return stateLspVlx;
+            if ((l_word == l_vlxarximp) && (strcmp(word, s_vlxarximp) == 0))
+                return stateLspVlx;
+            if ((l_word == l_vlbbset) && (strcmp(word, s_vlbbset) == 0))
+                return stateLspBB;
+            if ((l_word == l_vlbbref) && (strcmp(word, s_vlbbref) == 0))
+                return stateLspBB;
+        }
+        return stateNoState;
+    }
     return stateNoState;
 }
 
@@ -150,49 +187,50 @@ static void classifyWordLisp(unsigned int start, unsigned int end,
                              const WordList &keywords_us,
                              Accessor &styler)
 {
-	assert(end >= start);
-    static const size_t s_maxChars(8192);
-	static char s[s_maxChars];
+    assert(end >= start);
+    static const size_t s_maxChars(1024);
+    static char  str[s_maxChars];
 
     int len = end - start + 1;
     if (len >= s_maxChars)
-        len = s_maxChars - 1;
+        len  = s_maxChars - 1;
     else
     if (len < 0)
         len = 0;
 
-    *s = '\0';
+    *str = '\0';
 
     bool digit_flag = true;
-    int ch = 0, numSigns = 0, numExps = 0, numDots = 0;
+    int ch = 0, numSigns = 0, numExps = 0, numDots = 0, ePos = -1;
     --len;
-	for (int i = 0, pos = (int)start; i <= len; ++pos)
+	for (int i = 0, pos = (int)start; i <= len; ++pos, ++i)
     {
-		s[i] = ch = tolower(styler[pos]);
+		str[i] = ch = tolower(styler[pos]);
         if (digit_flag)
         {
             if ((ch == '+') || (ch == '-')) ++numSigns;
             else
-            if (ch == 'e') ++numExps;
+            if (ch == 'e') ++numExps, ePos = i;
             else
             if (ch == '.') ++numDots;
             else
             if (!isdigit(ch)) digit_flag = false;
         }
-		s[++i] = '\0';
 	}
+    str[len + 1] = '\0';
 
-    if (digit_flag && (numExps == 1)) --numSigns; // allow 1 more '-/+' if 'e' is present
+    if (digit_flag)
+    {
+        if (numExps == 1) --numSigns;  // allow 1 more '-/+' if 'e' is present
 
-    if (digit_flag && (numExps  > 1)) digit_flag = false;
-    else
-    if (digit_flag && (numSigns > 1)) digit_flag = false;
-    else
-    if (digit_flag && (numDots  > 1)) digit_flag = false;
-    else
-    if (digit_flag && numDots && (s[0] == '.')) digit_flag = false; // no leading '.' allowed
-    else
-    if (digit_flag && (len <= 1) && ((numExps + numSigns + numDots) > 0)) digit_flag = false;
+        if ((numExps > 1) || (numSigns > 1) || (numDots > 1)) digit_flag = false;
+        else
+        if (*str == '.') digit_flag = false;  // no leading '.' allowed
+        else
+        if ((len <= 0) && (numExps || numSigns || numDots)) digit_flag = false;
+        else
+        if (ePos == 0) digit_flag = false;
+    }
 
     char chAttr = SCE_LISP_IDENTIFIER;
 	if (digit_flag)
@@ -200,28 +238,29 @@ static void classifyWordLisp(unsigned int start, unsigned int end,
         chAttr = SCE_LISP_NUMBER;
     }
     else
-	if (keywords.InList(s))
+	if (keywords.InList(str))
     {
 		chAttr = SCE_LISP_KEYWORD;
 	}
     else
-    if (keywords_kw.InList(s))
+    if (keywords_kw.InList(str))
     {
 		chAttr = SCE_LISP_KEYWORD_KW;
 	}
     else
-    if (keywords_us.InList(s))
+    if (keywords_us.InList(str))
     {
 		chAttr = SCE_LISP_SPECIAL;
 	}
 
     styler.ColourTo(end, chAttr);
-	return;
 }
 
 // start + end positions need to be outside block comment area ...
 static void AdjustStartEndPositions(unsigned int& startPos, int& length, Accessor& styler)
 {
+    static const int s_insideComments = (stateInBlockComment | stateInComment);
+
     int sPos  = (int)startPos;
     int ePos  = sPos + length;
 	int sLine = styler.GetLine(sPos);
@@ -229,7 +268,7 @@ static void AdjustStartEndPositions(unsigned int& startPos, int& length, Accesso
 
     // adjust start position
     int oldState = styler.GetLineState(sLine);
-    while ((sLine > 0) && ((oldState & (stateInBlockComment|stateInComment)) != 0))
+    while ((sLine > 0) && ((oldState & s_insideComments) != 0))
     {
         oldState = styler.GetLineState(--sLine);
     }
@@ -239,24 +278,18 @@ static void AdjustStartEndPositions(unsigned int& startPos, int& length, Accesso
     const int maxLine = styler.GetLine(styler.Length());
     int line(eLine);
     oldState = styler.GetLineState(line);
-    while ((line < maxLine) && ((oldState & (stateInBlockComment|stateInComment)) != 0))
+    while ((line < maxLine) && ((oldState & s_insideComments) != 0))
     {
         oldState = styler.GetLineState(++line);
     }
-    eLine = line;
+    eLine = line; //eLine = --line; ?
     if (eLine > maxLine) eLine = maxLine;
-
-    // clear block comment + function type flags
-    for (line = sLine; line <= eLine; ++line)
-    {
-        oldState = styler.GetLineState(line);
-        styler.SetLineState(line, oldState & (~stateInComment) & (~stateInBlockComment) & (~stateLineMask));
-    }
 
 	sPos = styler.LineStart(sLine);
     if (sPos < 0) sPos = 0;
 
-    ePos = styler.LineStart(eLine); // if at last line, use last position
+    ePos = styler.LineStart(eLine); // if at last line, use last position //ePos = styler.LineStart(eLine + 1); ??
+
     if (eLine >= maxLine) ePos = styler.Length();
     if (ePos < ((int)startPos + length))
         ePos = ((int)startPos + length);
@@ -276,7 +309,6 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
 
     bool atEOL = false, insideString = false;
     int radix = -1;
-	char ch = 0;
 
     AdjustStartEndPositions(startPos, length, styler);
 
@@ -284,47 +316,50 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
     int state = (startPos > 0) ? styler.StyleAt(startPos - 1) : 0;
     state &= stylingBitsMask;
 
-    int oldLineState = styler.GetLineState(lineCurrent);
-    oldLineState &= (~stateInComment) & (~stateInBlockComment) & (~stateLineMask);
+    int lineState = styler.GetLineState(lineCurrent);
+    lineState    &= (~stateInComment) & (~stateInBlockComment);
 
-	styler.StartAt(startPos);
+    bool isMBCS = (styler.Encoding() == encDBCS);
 
-    char chNext = styler[startPos];
-	int lengthDoc = startPos + length;
-	styler.StartSegment(startPos);
-	for (int i = (int)startPos; i < lengthDoc; ++i)
+    char ch       = 0;
+    char chNext   = styler[startPos];
+    int lengthDoc = startPos + length;
+
+    styler.StartAt(startPos);
+    styler.StartSegment(startPos);
+
+    for (int i = (int)startPos; i < lengthDoc; ++i)
     {
-		ch = chNext;
-		chNext = styler.SafeGetCharAt(i + 1);
+        ch = chNext;
+        chNext = styler.SafeGetCharAt(i + 1);
 
-		atEOL = (ch == '\r' && chNext != '\n') || (ch == '\n');
+        atEOL = (ch == '\r' && chNext != '\n') || (ch == '\n');
 
-		if (styler.IsLeadByte(ch))
+        if (isMBCS && styler.IsLeadByte(ch))
         {
-			chNext = styler.SafeGetCharAt(i + 2);
-			++i;
-			continue;
-		}
+            chNext = styler.SafeGetCharAt(i + 2);
+            ++i;
+            continue;
+        }
 
-		if (state == SCE_LISP_DEFAULT)
+        if (state == SCE_LISP_DEFAULT)
         {
             if (isLispWordstart(ch))
             {
                 if ((i - 1) >= 0)
                     styler.ColourTo(i - 1, state);
-			    state = SCE_LISP_IDENTIFIER;
-			}
-			else
+                state = SCE_LISP_IDENTIFIER;
+            }
+            else
             if (ch == ';')
             {
                 if ((i - 1) >= 0)
                     styler.ColourTo(i - 1, state);
-//styler.ColourTo(i, SCE_LISP_COMMENT);
 				state = SCE_LISP_COMMENT;
                 if (chNext == '|')
                 {
                     state = SCE_LISP_MULTI_COMMENT;
-                    styler.ColourTo(i /*+ 1*/, SCE_LISP_COMMENT);
+                    styler.ColourTo(i, SCE_LISP_COMMENT);
                 }
 			}
 			else
@@ -362,12 +397,11 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
                 {
                     if ((i - 1) >= 0)
                         styler.ColourTo(i - 1, state);
-                    //styler.ColourTo(i, SCE_LISP_COMMENT);
     				state = SCE_LISP_COMMENT;
                     if (chNext == '|')
                     {
                         state = SCE_LISP_MULTI_COMMENT;
-                        styler.ColourTo(i /*+ 1*/, SCE_LISP_COMMENT);
+                        styler.ColourTo(i, SCE_LISP_COMMENT);
                     }
     			}
                 else
@@ -404,7 +438,7 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
         {
 			if (atEOL)
             {
-                styler.SetLineState(lineCurrent, oldLineState | stateInComment);
+                lineState |= stateInComment;
                 if ((i - 1) >= 0)
                     styler.ColourTo(i - 1, SCE_LISP_COMMENT);
 			    state = SCE_LISP_DEFAULT;
@@ -415,11 +449,10 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
         {
 			if (ch == '|' && chNext == ';')
             {
-                styler.SetLineState(lineCurrent, oldLineState | stateInBlockComment);
+                lineState |= stateInBlockComment;
                 styler.ColourTo(++i, SCE_LISP_COMMENT);
-                state = SCE_LISP_DEFAULT;
+                state  = SCE_LISP_DEFAULT;
                 chNext = styler.SafeGetCharAt(i + 1);
-                continue;
 			}
 		}
         else
@@ -445,14 +478,20 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
         {
             if (state == SCE_LISP_MULTI_COMMENT)
             {
-                styler.SetLineState(lineCurrent, oldLineState | stateInBlockComment);
+                lineState |= stateInBlockComment;
                 styler.ColourTo(i - 1, SCE_LISP_COMMENT);
             }
-            ++lineCurrent;
-            oldLineState = styler.GetLineState(lineCurrent);
-            oldLineState &= (~stateLineMask); // clear old function line states
+
+            if (lineState != styler.GetLineState(lineCurrent))
+                styler.SetLineState(lineCurrent, lineState);
+
+            lineState = styler.GetLineState(++lineCurrent);
+            lineState &= (~stateInComment) & (~stateInBlockComment);
         }
 	}
+
+    if (lineState != styler.GetLineState(lineCurrent))
+        styler.SetLineState(lineCurrent, lineState);
 
     styler.ColourTo(lengthDoc - 1, state);
 }
@@ -460,45 +499,32 @@ static void ColouriseLispDoc(unsigned int startPos, int length, int initStyle,
 static void FoldLispDoc(unsigned int startPos, int length, int /* initStyle */, WordList *[],
                         Accessor &styler)
 {
-	unsigned int lengthDoc = startPos + length;
-	int visibleChars = 0;
-	int lineCurrent = styler.GetLine(startPos);
-    int levelPrev = styler.LevelAt(lineCurrent) & SC_FOLDLEVELNUMBERMASK;
+    int lengthDoc    = startPos + length;
+    int lineCurrent  = styler.GetLine(startPos);
+    int levelPrev    = styler.LevelAt(lineCurrent) & SC_FOLDLEVELNUMBERMASK;
     int levelCurrent = levelPrev;
-    int resState = stateNoState;
+	int lev          = 0;
 
-    int oldLineState = styler.GetLineState(lineCurrent);
-    oldLineState &= (~stateLineMask); // clear old function line states
+    int lineState    = styler.GetLineState(lineCurrent);
+    lineState       &= (~stateLineMask); // clear old function line states
 
-    char ch = 0;
-	char chNext = styler[startPos];
-	int style = 0;
-	int styleNext = styler.StyleAt(startPos);
-	bool atEOL = false;
-	for (unsigned int pos = startPos; pos < lengthDoc; ++pos)
+    char ch    = 0, chNext = styler.SafeGetCharAt(startPos);
+    int  style = 0;
+
+    for (int pos = (int)startPos; pos < lengthDoc; ++pos)
     {
-		ch        = chNext;
-        style     = styleNext;
-
-		chNext    = styler.SafeGetCharAt(pos + 1);
-        styleNext = styler.StyleAt(pos + 1);
-
-        atEOL     = (ch == '\r' && chNext != '\n') || (ch == '\n');
+        ch     = chNext;
+        chNext = styler.SafeGetCharAt(pos + 1);
+        style  = styler.StyleAt(pos);
 
         if (style == SCE_LISP_OPERATOR)
         {
 			if (ch == '(')
             {
 				++levelCurrent;
-                resState = parseKeyFunctionLisp(styler, pos, lengthDoc);
-                if (resState != stateNoState)
-                {
-                    styler.SetLineState(lineCurrent, oldLineState | resState);
-                }
-                // adjust pos, chNext, styleNext
-                chNext    = styler.SafeGetCharAt(pos);
-                styleNext = styler.StyleAt(pos--);
-                ++visibleChars;
+                lineState |= parseKeyFunctionLisp(styler, pos, lengthDoc);
+                // adjust pos, chNext
+                chNext = styler.SafeGetCharAt(pos--);
             }
             else
             if (ch == ')')
@@ -507,37 +533,33 @@ static void FoldLispDoc(unsigned int startPos, int length, int /* initStyle */, 
 			}
 		}
         else
-		if (atEOL)
+        if ((ch == '\r' && chNext != '\n') || (ch == '\n')) // at EOL
         {
-			int lev = levelPrev;
-            int foldLevel = (levelCurrent & ~SC_FOLDLEVELNUMBERMASK);
-
-            if ((foldLevel > SC_FOLDLEVELBASE) && (visibleChars == 0))
-				lev |= SC_FOLDLEVELWHITEFLAG;
+			lev = levelPrev;
 
             if (levelCurrent > levelPrev)
 				lev |= SC_FOLDLEVELHEADERFLAG;
 
             if (lev != styler.LevelAt(lineCurrent))
-				styler.SetLevel(lineCurrent, lev);
+                styler.SetLevel(lineCurrent, lev);
 
-			++lineCurrent;
-			levelPrev = levelCurrent;
-			visibleChars = 0;
+            levelPrev  = levelCurrent;
 
-            oldLineState = styler.GetLineState(lineCurrent);
-            oldLineState &= (~stateLineMask); // clear old function line states
-		}
-        else
-		if (!isspacechar(ch))
-        {
-			++visibleChars;
+            if (lineState != styler.GetLineState(lineCurrent))
+                styler.SetLineState(lineCurrent, lineState);
+
+            lineState  = styler.GetLineState(++lineCurrent);
+            lineState &= (~stateLineMask); // clear old function line states
         }
 	}
 
+    if (lineState != styler.GetLineState(lineCurrent))
+        styler.SetLineState(lineCurrent, lineState);
+
     // Fill in the real level of the next line, keeping the current flags as they will be filled in later
 	int flagsNext = styler.LevelAt(lineCurrent) & ~SC_FOLDLEVELNUMBERMASK;
-	styler.SetLevel(lineCurrent, levelPrev | flagsNext);
+    int newLevel = levelPrev | flagsNext;
+    styler.SetLevel(lineCurrent, newLevel);
 }
 
 // DCL : Colourise + Fold
@@ -549,12 +571,13 @@ static inline bool isDclOperator(const char ch)
 
 static inline bool isDclWordstart(const char ch)
 {
-	return isascii(ch) && ch != '/'  && !isspacechar(ch) && !isDclOperator(ch) &&  ch != '\"';
+	return ch != '/'  && !isspacechar(ch) && !isDclOperator(ch) &&  ch != '\"';
 }
 
 static bool parseDialog(Accessor &styler, unsigned int pos, unsigned int lengthDoc)
 {
-    static const wxString s_dialog(wxT("dialog"));
+    static const char* s_dialog = "dialog";
+    static char s_str[10] = {0};
 
     char ch = 0;
 
@@ -565,19 +588,26 @@ static bool parseDialog(Accessor &styler, unsigned int pos, unsigned int lengthD
         if (wxIsgraph(ch))
             break;
     }
-    wxString str(ch);
-    for (unsigned int i=0; i < 5; ++i)
+
+    s_str[0] = tolower(ch);
+    if (s_str[0] != 'd')
+        return false;
+
+    for (unsigned int i = 1; i < 6; ++i)
     {
         ch = styler.SafeGetCharAt(++pos);
-        str += ch;
+        s_str[i] = tolower(ch);
     }
-    if (str.CmpNoCase(s_dialog) != 0)
+    s_str[6] = 0;
+
+    if (strcmp(s_str, s_dialog) != 0)
         return false;
 
     // check next character after 'dialog'
     ch = styler.SafeGetCharAt(++pos);
     if (!wxIsspace(ch) && (ch != wxT('{')))
         return false;
+
     return true;
 }
 
@@ -625,23 +655,24 @@ static void ColouriseDclDoc(unsigned int startPos, int length, int initStyle,
 	const WordList &keywords    = *keywordlists[0];
 	const WordList &keywords_kw = *keywordlists[1];
 
-	styler.StartAt(startPos);
-
 	int lineCurrent = styler.GetLine(startPos);
     bool atEOL = false, insideString = false;
-	char ch = 0;
 
     int state = initStyle, radix = -1;
     if ((styler.GetLineState(lineCurrent) & stateInBlockComment) != 0)
         state = SCE_DCL_COMMENT;
 
-    int oldLineState = styler.GetLineState(lineCurrent);
-    oldLineState &= (~stateLineMask); // clear old function line states
+    int lineState = styler.GetLineState(lineCurrent);
+    lineState    &= (~stateLineMask); // clear old function line states
 
-    char chNext = styler[startPos];
+    char ch       = 0;
+    char chNext   = styler[startPos];
 	int lengthDoc = startPos + length;
-	styler.StartSegment(startPos);
-	for (int i = (int)startPos; i < lengthDoc; ++i)
+
+    styler.StartAt(startPos);
+    styler.StartSegment(startPos);
+
+    for (int i = (int)startPos; i < lengthDoc; ++i)
     {
 		ch = chNext;
 		chNext = styler.SafeGetCharAt(i + 1);
@@ -750,7 +781,7 @@ static void ColouriseDclDoc(unsigned int startPos, int length, int initStyle,
         {
 			if (atEOL)
             {
-                styler.SetLineState(lineCurrent, oldLineState | stateInComment);
+                lineState |= stateInComment;
                 if ((i - 1) >= 0)
                     styler.ColourTo(i - 1, SCE_DCL_COMMENT);
 			    state = SCE_DCL_DEFAULT;
@@ -761,11 +792,10 @@ static void ColouriseDclDoc(unsigned int startPos, int length, int initStyle,
         {
 			if (ch == '*' && chNext == '/')
             {
-                styler.SetLineState(lineCurrent, oldLineState | stateInBlockComment);
+                lineState |= stateInBlockComment;
                 styler.ColourTo(++i, SCE_DCL_COMMENT);
                 state = SCE_DCL_DEFAULT;
                 chNext = styler.SafeGetCharAt(++i);
-                continue;
 			}
 		}
         else
@@ -790,14 +820,18 @@ static void ColouriseDclDoc(unsigned int startPos, int length, int initStyle,
 		if (atEOL)
         {
             if (state == SCE_DCL_MULTI_COMMENT)
-            {
-                styler.SetLineState(lineCurrent, oldLineState | stateInBlockComment);
-            }
-            ++lineCurrent;
-            oldLineState = styler.GetLineState(lineCurrent);
-            oldLineState &= (~stateLineMask); // clear old function line states
+                lineState |= stateInBlockComment;
+
+            if (lineState != styler.GetLineState(lineCurrent))
+                styler.SetLineState(lineCurrent, lineState);
+
+            lineState  = styler.GetLineState(++lineCurrent);
+            lineState &= (~stateLineMask); // clear old function line states
         }
     }
+
+    if (lineState != styler.GetLineState(lineCurrent))
+        styler.SetLineState(lineCurrent, lineState);
 
     styler.ColourTo(lengthDoc - 1, state);
 }
@@ -805,54 +839,41 @@ static void ColouriseDclDoc(unsigned int startPos, int length, int initStyle,
 static void FoldDclDoc(unsigned int startPos, int length, int /* initStyle */, WordList *[],
                        Accessor &styler)
 {
-	unsigned int lengthDoc = startPos + length;
-	int visibleChars = 0;
-	int lineCurrent = styler.GetLine(startPos);
+    int lengthDoc = (int)(startPos + length);
+    int lineCurrent = styler.GetLine(startPos);
     int levelPrev = styler.LevelAt(lineCurrent) & SC_FOLDLEVELNUMBERMASK;
     int levelCurrent = levelPrev;
-	char ch = 0;
-	char chNext = styler[startPos];
-	int style = 0;
-	int styleNext = styler.StyleAt(startPos);
 
-    int oldLineState = styler.GetLineState(lineCurrent);
-    oldLineState &= (~stateLineMask); // clear old function line states
-    
-    bool atEOL = false;
-    for (unsigned int i = startPos; i < lengthDoc; ++i)
+    char ch     = 0, chNext = styler[startPos];
+    int  style  = 0;
+    bool atEOL  = false;
+
+    int lineState = styler.GetLineState(lineCurrent);
+    lineState    &= (~stateLineMask); // clear old function line states
+
+    for (int i = (int)startPos; i < lengthDoc; ++i)
     {
-		ch = chNext;
-		chNext = styler.SafeGetCharAt(i + 1);
-		style = styleNext;
-		styleNext = styler.StyleAt(i + 1);
-		atEOL = (ch == '\r' && chNext != '\n') || (ch == '\n');
-		if (style == SCE_DCL_OPERATOR)
+        ch     = chNext;
+        chNext = styler.SafeGetCharAt(i + 1);
+        style  = styler.StyleAt(i);
+
+        atEOL  = (ch == '\r' && chNext != '\n') || (ch == '\n');
+
+        if (style == SCE_DCL_OPERATOR)
         {
-            if (ch == ':')
-            {
-                // check for next word is 'dialog'
-                if (parseDialog(styler, i + 1, lengthDoc))
-                    styler.SetLineState(lineCurrent, oldLineState | stateIdDialog);
-            }
+            if (ch == ':')  // check for next word is 'dialog'
+                lineState |= parseDialog(styler, i + 1, lengthDoc) ? stateIdDialog : 0;
             else
 			if (ch == '{')
-            {
 				++levelCurrent;
-			}
             else
             if (ch == '}')
-            {
 				--levelCurrent;
-			}
 		}
         else
 		if (atEOL)
         {
 			int lev = levelPrev;
-            int foldLevel = (levelCurrent & ~SC_FOLDLEVELNUMBERMASK);
-
-            if ((foldLevel > SC_FOLDLEVELBASE) && (visibleChars == 0))
-				lev |= SC_FOLDLEVELWHITEFLAG;
 
             if (levelCurrent > levelPrev)
 				lev |= SC_FOLDLEVELHEADERFLAG;
@@ -860,19 +881,18 @@ static void FoldDclDoc(unsigned int startPos, int length, int /* initStyle */, W
             if (lev != styler.LevelAt(lineCurrent))
 				styler.SetLevel(lineCurrent, lev);
 
-			++lineCurrent;
 			levelPrev = levelCurrent;
-			visibleChars = 0;
 
-            oldLineState = styler.GetLineState(lineCurrent);
-            oldLineState &= (~stateLineMask); // clear old function line states
-        }
-        else
-		if (!isspacechar(ch))
-        {
-			++visibleChars;
+            if (lineState != styler.GetLineState(lineCurrent))
+                styler.SetLineState(lineCurrent, lineState);
+
+            lineState  = styler.GetLineState(++lineCurrent);
+            lineState &= (~stateLineMask); // clear old function line states
         }
 	}
+
+    if (lineState != styler.GetLineState(lineCurrent))
+        styler.SetLineState(lineCurrent, lineState);
 
     // Fill in the real level of the next line, keeping the current flags as they will be filled in later
 	int flagsNext = styler.LevelAt(lineCurrent) & ~SC_FOLDLEVELNUMBERMASK;

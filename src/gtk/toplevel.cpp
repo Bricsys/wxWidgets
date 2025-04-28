@@ -44,6 +44,7 @@
 #ifdef GDK_WINDOWING_X11
     #include <X11/Xatom.h>  // XA_CARDINAL
     #include "wx/unix/utilsx11.h"
+    #include "wx/unix/private/x11ptr.h"
 #endif
 
 // ----------------------------------------------------------------------------
@@ -120,18 +121,17 @@ static void wxgtk_window_set_urgency_hint (GtkWindow *win,
 
         Display* dpy = GDK_WINDOW_XDISPLAY(window);
         Window xid = GDK_WINDOW_XID(window);
-        XWMHints* wm_hints = XGetWMHints(dpy, xid);
+        wxX11Ptr<XWMHints> wm_hints(XGetWMHints(dpy, xid));
 
         if (!wm_hints)
-            wm_hints = XAllocWMHints();
+            wm_hints.reset(XAllocWMHints());
 
         if (setting)
             wm_hints->flags |= XUrgencyHint;
         else
             wm_hints->flags &= ~XUrgencyHint;
 
-        XSetWMHints(dpy, xid, wm_hints);
-        XFree(wm_hints);
+        XSetWMHints(dpy, xid, const_cast<XWMHints*>(wm_hints.get()));
 #endif // GDK_WINDOWING_X11
     }
 }
@@ -546,13 +546,13 @@ bool wxGetFrameExtents(GdkWindow* window, int* left, int* right, int* top, int* 
     Atom type;
     int format;
     gulong nitems, bytes_after;
-    guchar* data = NULL;
+    wxX11Ptr<guchar> data;
     Status status = XGetWindowProperty(
         GDK_DISPLAY_XDISPLAY(display),
         GDK_WINDOW_XID(window),
         xproperty,
         0, 4, false, XA_CARDINAL,
-        &type, &format, &nitems, &bytes_after, &data);
+        &type, &format, &nitems, &bytes_after, data.Out());
     const bool success = status == Success && data && nitems == 4;
     if (success)
     {
@@ -562,14 +562,12 @@ bool wxGetFrameExtents(GdkWindow* window, int* left, int* right, int* top, int* 
         if (wx_is_at_least_gtk3(10))
             scale = gdk_window_get_scale_factor(window);
 #endif
-        long* p = (long*)data;
+        long* p = (long*)data.get();
         if (left)   *left   = int(p[0]) / scale;
         if (right)  *right  = int(p[1]) / scale;
         if (top)    *top    = int(p[2]) / scale;
         if (bottom) *bottom = int(p[3]) / scale;
     }
-    if (data)
-        XFree(data);
     return success;
 #else
     wxUnusedVar(window);

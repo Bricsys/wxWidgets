@@ -50,6 +50,7 @@ GtkWidget* wxGetTopLevelGTK();
 #ifdef wxHAS_X11_SUPPORT
 
 #include "wx/unix/utilsx11.h"
+#include "wx/unix/private/x11ptr.h"
 
 #ifdef __VMS
 #pragma message disable nosimpint
@@ -315,8 +316,8 @@ static bool wxQueryWMspecSupport(Display *display, Window rootWnd, Atom feature)
     //        the event loop.
 
     Atom type;
-    Window *wins;
-    Atom *atoms;
+    wxX11Ptr<Window> wins;
+    wxX11Ptr<Atom> atoms;
     int format;
     unsigned long after;
     unsigned long nwins, natoms;
@@ -325,29 +326,24 @@ static bool wxQueryWMspecSupport(Display *display, Window rootWnd, Atom feature)
     XGetWindowProperty(display, rootWnd,
                        _NET_SUPPORTING_WM_CHECK, 0, LONG_MAX,
                        False, XA_WINDOW, &type, &format, &nwins,
-                       &after, (unsigned char **)&wins);
+                       &after, (unsigned char **)wins.Out());
     if ( type != XA_WINDOW || nwins == 0 || wins[0] == None )
        return false;
-    XFree(wins);
 
     // Query for supported features:
     XGetWindowProperty(display, rootWnd,
                        _NET_SUPPORTED, 0, LONG_MAX,
                        False, XA_ATOM, &type, &format, &natoms,
-                       &after, (unsigned char **)&atoms);
-    if ( type != XA_ATOM || atoms == NULL )
+                       &after, (unsigned char **)atoms.Out());
+    if ( type != XA_ATOM || atoms == nullptr )
         return false;
 
     // Lookup the feature we want:
     for (unsigned i = 0; i < natoms; i++)
     {
         if ( atoms[i] == feature )
-        {
-            XFree(atoms);
             return true;
-        }
     }
-    XFree(atoms);
     return false;
 }
 #endif
@@ -402,22 +398,20 @@ static bool wxKwinRunning(Display *display, Window rootWnd)
 {
     wxMAKE_ATOM(KWIN_RUNNING, display);
 
-    unsigned char* data;
+    wxX11Ptr<unsigned char> data;
     Atom type;
     int format;
     unsigned long nitems, after;
     if (XGetWindowProperty(display, rootWnd,
                            KWIN_RUNNING, 0, 1, False, KWIN_RUNNING,
                            &type, &format, &nitems, &after,
-                           &data) != Success)
+                           data.Out()) != Success)
     {
         return false;
     }
 
-    bool retval = (type == KWIN_RUNNING &&
-                   nitems == 1 && data && ((long*)data)[0] == 1);
-    XFree(data);
-    return retval;
+    return (type == KWIN_RUNNING &&
+                   nitems == 1 && data && ((long*)data.get())[0] == 1);
 }
 
 // KDE's kwin is Qt-centric so much than no normal method of fullscreen

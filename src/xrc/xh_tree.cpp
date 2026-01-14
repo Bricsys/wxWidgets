@@ -15,6 +15,7 @@
 
 #include "wx/xrc/xh_tree.h"
 #include "wx/treectrl.h"
+#include "wx/generic/treectlg.h"
 
 wxIMPLEMENT_DYNAMIC_CLASS(wxTreeCtrlXmlHandler, wxXmlResourceHandler);
 

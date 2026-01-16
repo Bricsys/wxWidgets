@@ -38,17 +38,15 @@ public:
     int GetThumbSize() const wxOVERRIDE { return m_pageSize; }
     int GetPageSize() const wxOVERRIDE { return m_viewSize; }
     int GetRange() const wxOVERRIDE { return m_objectSize; }
-    int GetLineSize() const { return m_lineSize; }
 
     virtual void SetThumbPosition(int viewStart) wxOVERRIDE;
     virtual void SetScrollbar(int position, int thumbSize, int range, int pageSize,
-            bool refresh = true, int lineSize = 1) wxOVERRIDE ;
+            bool refresh = true) wxOVERRIDE;
 
     // needed for RTTI
-    void SetThumbSize( int s ) { SetScrollbar( GetThumbPosition() , s , GetRange() , GetPageSize() , true , GetLineSize() ) ; }
-    void SetPageSize( int s ) { SetScrollbar( GetThumbPosition() , GetThumbSize() , GetRange() , s , true , GetLineSize()) ; }
-    void SetRange( int s ) { SetScrollbar( GetThumbPosition() , GetThumbSize() , s , GetPageSize() , true , GetLineSize()) ; }
-    void SetLineSize( int s ) { SetScrollbar( GetThumbPosition() , GetThumbSize() , GetRange() , GetPageSize() , true , s) ; }
+    void SetThumbSize( int s ) { SetScrollbar( GetThumbPosition() , s , GetRange() , GetPageSize() , true ) ; }
+    void SetPageSize( int s ) { SetScrollbar( GetThumbPosition() , GetThumbSize() , GetRange() , s , true ) ; }
+    void SetRange( int s ) { SetScrollbar( GetThumbPosition() , GetThumbSize() , s , GetPageSize() , true ) ; }
 
     void Command(wxCommandEvent& event) wxOVERRIDE;
     virtual bool MSWOnScroll(int orientation, WXWORD wParam,
@@ -68,7 +66,6 @@ protected:
     int m_pageSize;
     int m_viewSize;
     int m_objectSize;
-    int m_lineSize;
 
     wxDECLARE_DYNAMIC_CLASS_NO_COPY(wxScrollBar);
 };

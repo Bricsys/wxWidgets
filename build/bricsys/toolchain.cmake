@@ -8,3 +8,4 @@ set(wxUSE_WIN_METAFILES_ALWAYS ON CACHE BOOL "Enable Windows metafiles support" 
 
 # Keep enhanced metafiles enabled (default)
 set(wxUSE_ENH_METAFILE ON CACHE BOOL "Enable enhanced metafiles" FORCE)
+

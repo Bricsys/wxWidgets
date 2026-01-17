@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# wxWidgets is moving towards using wxUSE_STL=ON from 3.3 (see https://wxwidgets.org/blog/2023/04/separate-stl-build-is-no-more/). So then we should it too starting from now.
+
 import os
 import subprocess
 import shutil
@@ -23,6 +25,11 @@ class Action(IntFlag):
     BUILD = 1 << 2
     ALL = CHECKOUT | GENERATE | BUILD
 
+def initialize_and_update_submodules(sub_modules, cwd, env):
+    command_text = f'git submodule update --init '
+    for module in sub_modules:
+        run_command( command_text + module, cwd=cwd, env=env)
+
 def main():
     parser = argparse.ArgumentParser(description='Build Qt from source.')
     parser.add_argument(
@@ -38,6 +45,8 @@ def main():
     parser.add_argument('--wx_install_dir', default='../../', help='Wx install directory (default: ../)')
     args = parser.parse_args()
 
+    CWD = os.getcwd()
+
     # Apply conditional default
     if args.cmake_generator is None:
         if args.platform == 'windows':
@@ -47,9 +56,9 @@ def main():
 
     # Configurable Constants
     WXGIT_REPO_URL = 'git@github.com:Bricsys/wxWidgets.git'
-    SUBMODULES = ''
-    SKIP_MODULES = ''
     PLATFORM = args.platform # windows, linux, mac
+    SUBMODULES = {'3rdparty/nanosvg', '3rdparty/pcre', 'src/jpeg', 'src/png', 'src/zlib', 'src/expat', 'src/tiff' }
+    SKIP_MODULES = ''
     CMAKE_GENERATOR =  args.cmake_generator # Adjust based on your platform and compiler
 
    
@@ -91,7 +100,7 @@ def main():
 
     print(f"==============================================")
     print(f"Running script with the following config:")
-    #print(f"WX VERSION: {QT_VERSION}")
+    #print(f"WX VERSION: {WX_VERSION}")
     print(f"ACTION: {args.action}")
     print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
     print(f"PLATFORM: {PLATFORM}")
@@ -103,7 +112,7 @@ def main():
     print(f"==============================================", flush=True)
 
     # Prepare environment variables for subprocesses
-    env = os.environ.copy()
+    ENV = os.environ.copy()
 
     # Configure the build
     configure_command = (
@@ -129,12 +138,15 @@ def main():
         f'-DwxBUILD_INSTALL=ON '
     )
 
+    if Action.CHECKOUT in ACTION:
+        initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)
+
     if Action.GENERATE in ACTION:
-        run_command(configure_command, cwd=os.getcwd(), env=env)
+        run_command(configure_command, cwd=os.getcwd(), env=ENV)
 
     if Action.BUILD in ACTION:
-        run_command(f'cmake --build {BUILD_DIR}', cwd=os.getcwd(), env=env)
-        run_command(f'cmake --install {os.getcwd()} --config {BUILD_TYPE}', cwd=os.getcwd(), env=env)
+        run_command(f'cmake --build {BUILD_DIR}', cwd=os.getcwd(), env=ENV)
+        run_command(f'cmake --install {os.getcwd()} --config {BUILD_TYPE}', cwd=os.getcwd(), env=ENV)
 
 if __name__ == '__main__':
     start = time.time()

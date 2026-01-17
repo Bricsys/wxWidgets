@@ -35,7 +35,7 @@ def main():
     parser.add_argument('--build_type', default='debug', help='Build type: release, debug, release_de    bug')
     parser.add_argument('--wx_src_dir', default='../../', help='Qt source directory (default: qt/src)')
     parser.add_argument('--wx_build_dir', help='Qt build directory (default: build/bricsys-{PLATFORM})')
-    parser.add_argument('--wx_install_dir', default='../', help='Wx install directory (default: ../)')
+    parser.add_argument('--wx_install_dir', default='../../', help='Wx install directory (default: ../)')
     args = parser.parse_args()
 
     # Apply conditional default
@@ -126,6 +126,7 @@ def main():
         f'-DwxBUILD_USE_PRIVATE_HEADERS=ON '
         f'-DwxBUILD_SAMPLES=OFF ' 
         f'-DwxBUILD_TESTS=OFF '
+        f'-DwxBUILD_INSTALL=ON '
     )
 
     if Action.GENERATE in ACTION:
@@ -133,6 +134,7 @@ def main():
 
     if Action.BUILD in ACTION:
         run_command(f'cmake --build {BUILD_DIR}', cwd=os.getcwd(), env=env)
+        run_command(f'cmake --install {os.getcwd()} --config {BUILD_TYPE}', cwd=os.getcwd(), env=env)
 
 if __name__ == '__main__':
     start = time.time()

@@ -178,10 +178,11 @@ int wxScrollBar::GetPageSize() const
     return int(gtk_adjustment_get_page_increment(adj));
 }
 
+// bricsys added
 int wxScrollBar::GetLineSize() const
 {
-    GtkAdjustment* adj = ((GtkRange*)m_widget)->adjustment;
-    return int(adj->step_increment);
+    GtkAdjustment* adj = gtk_range_get_adjustment(GTK_RANGE(m_widget));
+    return int(gtk_adjustment_get_step_increment(adj));
 }
 
 int wxScrollBar::GetRange() const

@@ -1120,7 +1120,7 @@ void wxWindowMSW::SetScrollbar(int orient,
                                int pos,
                                int pageSize,
                                int range,
-                               bool WXUNUSED(refresh),
+                               bool refresh,
                                int WXUNUSED(lineSize))
 {
 #if wxUSE_DEFERRED_SIZING

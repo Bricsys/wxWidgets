@@ -1377,7 +1377,9 @@ public:
 #if wxUSE_UNSAFE_WXSTRING_CONV && !defined(wxNO_UNSAFE_WXSTRING_CONV)
   operator wxStringToStdStringRetType() const { return ToStdString(); }
 #endif // wxUSE_UNSAFE_WXSTRING_CONV
-  operator wxStringToStdWstringRetType() const { return ToStdWstring(); }
+  // bricsys change: this clashes with operator const wchar_t*.
+  // Since OdChar/OdString are based on wchar_t*, we choose the former.
+  // operator wxStringToStdWstringRetType() const { return ToStdWstring(); }
 #endif // wxUSE_STD_STRING_CONV_IN_WXSTRING
 
 #undef wxStringToStdStringRetType

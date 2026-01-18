@@ -42,7 +42,7 @@ def main():
     parser.add_argument('--build_type', default='debug', help='Build type: release, debug, release_de    bug')
     parser.add_argument('--wx_src_dir', default='../../', help='Qt source directory (default: qt/src)')
     parser.add_argument('--wx_build_dir', help='Qt build directory (default: build/bricsys-{PLATFORM})')
-    parser.add_argument('--wx_install_dir', default='../../', help='Wx install directory (default: ../)')
+    parser.add_argument('--wx_install_dir', help='Wx install directory (default: ../)')
     args = parser.parse_args()
 
     CWD = os.getcwd()
@@ -51,8 +51,17 @@ def main():
     if args.cmake_generator is None:
         if args.platform == 'windows':
             args.cmake_generator = f'"Visual Studio 17"'
+        elif args.platform == 'linux':
+            args.cmake_generator = f'"Ninja"'
+
     if args.wx_build_dir is None:
         args.wx_build_dir = args.wx_src_dir + f'/build/bricsys-{args.platform}'
+
+    if args.wx_install_dir is None:
+        if args.platform == 'linux':
+            args.wx_install_dir = f'{CWD}/{args.build_type}'
+        elif args.platform == 'windows':
+            args.wx_install_dir = '../../'
 
     # Configurable Constants
     WXGIT_REPO_URL = 'git@github.com:Bricsys/wxWidgets.git'

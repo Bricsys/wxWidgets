@@ -9,9 +9,6 @@ if [ "$1" != "" ]; then
   ACTION_TYPE="$1"
 fi
 
-echo "ACTION TYPE: "
-echo "$ACTION_TYPE"
-
 if [ "$2" != "" ]; then
   BUILD_TYPE="$2"
 fi
@@ -28,8 +25,8 @@ fi
 
 
 if [ $ACTION_TYPE == "generate" ]; then
-  python3 build/build_wx.py --wx_src_dir=. --platform=$PLATFORM --action=generate
+  python3 build/bricsys/build_wx.py --wx_src_dir=. --platform=$PLATFORM --action=generate
 elif [ $ACTION_TYPE == "build" ]; then
-  python3 build/build_wx.py --wx_src_dir=. --platform=$PLATFORM --action=build --build_type=$BUILD_TYPE
+  python3 build/bricsys/build_wx.py --wx_src_dir=. --platform=$PLATFORM --action=build --build_type=$BUILD_TYPE
 fi
 

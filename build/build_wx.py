@@ -45,8 +45,6 @@ def main():
     parser.add_argument('--wx_install_dir', help='Wx install directory (default: ../)')
     args = parser.parse_args()
 
-    CWD = os.getcwd()
-
     # Apply conditional default
     if args.cmake_generator is None:
         if args.platform == 'windows':
@@ -56,6 +54,8 @@ def main():
 
     if args.wx_build_dir is None:
         args.wx_build_dir = args.wx_src_dir + f'/build/bricsys-{args.platform}'
+
+    CWD = args.wx_build_dir
 
     if args.wx_install_dir is None:
         if args.platform == 'linux':
@@ -151,11 +151,11 @@ def main():
         initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)
 
     if Action.GENERATE in ACTION:
-        run_command(configure_command, cwd=os.getcwd(), env=ENV)
+        run_command(configure_command, cwd=CWD, env=ENV)
 
     if Action.BUILD in ACTION:
-        run_command(f'cmake --build {BUILD_DIR}', cwd=os.getcwd(), env=ENV)
-        run_command(f'cmake --install {os.getcwd()} --config {BUILD_TYPE}', cwd=os.getcwd(), env=ENV)
+        run_command(f'cmake --build {BUILD_DIR}', cwd=CWD, env=ENV)
+        run_command(f'cmake --install {BUILD_DIR} --config {BUILD_TYPE}', cwd=CWD, env=ENV)
 
 if __name__ == '__main__':
     start = time.time()

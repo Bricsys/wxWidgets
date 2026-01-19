@@ -41,7 +41,7 @@ def main():
     parser.add_argument('--cmake_generator', help='The CMake Generator to use')
     parser.add_argument('--build_type', default='debug', help='Build type: release, debug, release_de    bug')
     parser.add_argument('--wx_src_dir', default='../../', help='Qt source directory (default: qt/src)')
-    parser.add_argument('--wx_build_dir', help='Qt build directory (default: build/bricsys-{PLATFORM})')
+    parser.add_argument('--wx_build_dir', help='Qt build directory (default: build_bsys)')
     parser.add_argument('--wx_install_dir', help='Wx install directory (default: ../)')
     args = parser.parse_args()
 
@@ -53,7 +53,7 @@ def main():
             args.cmake_generator = f'"Ninja"'
 
     if args.wx_build_dir is None:
-        args.wx_build_dir = args.wx_src_dir + f'/build/bricsys-{args.platform}'
+        args.wx_build_dir = args.wx_src_dir + f'/build_bsys/'
 
     CWD = args.wx_build_dir
 
@@ -122,6 +122,9 @@ def main():
 
     # Prepare environment variables for subprocesses
     ENV = os.environ.copy()
+
+    # Create directories
+    BUILD_DIR.mkdir(parents=True, exist_ok=True)
 
     # Configure the build
     configure_command = (

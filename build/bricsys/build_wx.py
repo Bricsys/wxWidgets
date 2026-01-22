@@ -149,6 +149,8 @@ def main():
         f'-DwxBUILD_TESTS=OFF '
         f'-DwxBUILD_INSTALL=ON '
     )
+    if PLATFORM == 'windows':
+        configure_command += f'-DwxUSE_LIBTIFF=builtin '
 
     if Action.CHECKOUT in ACTION:
         initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)

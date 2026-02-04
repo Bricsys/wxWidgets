@@ -698,7 +698,6 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/tls.h
     wx/tokenzr.h
     wx/tracker.h
-    wx/trackpadstate.h
     wx/translation.h
     wx/txtstrm.h
     wx/typeinfo.h
@@ -743,6 +742,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/lzmastream.h
     wx/localedefs.h
     wx/uilocale.h
+    wx/trackpadstate.h
 </set>
 
 
@@ -1607,6 +1607,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/gtk/dataview.h
     wx/gtk/dvrenderer.h
     wx/gtk/srchctrl.h
+    wx/trackpadstate.h
 </set>
 <set var="GTK2_HDR" hints="files">
     $(GTK_HDR)
@@ -2608,6 +2609,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/osx/appprogress.h
     wx/generic/icon.h
     wx/generic/imaglist.h
+    wx/trackpadstate.h
 </set>
 
 <!-- ====================================================================== -->
@@ -2649,8 +2651,6 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     src/osx/cocoa/textctrl.mm
     src/osx/cocoa/tglbtn.mm
     src/osx/cocoa/toolbar.mm
-    src/osx/cocoa/trackerInput.mm
-    src/osx/cocoa/trackerTouchDouble.mm
     src/osx/cocoa/tooltip.mm
     src/osx/cocoa/window.mm
     src/osx/cocoa/settings.mm
@@ -2672,6 +2672,8 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     src/osx/cocoa/activityindicator.mm
     src/osx/cocoa/statbmp.mm
     src/osx/core/display.cpp
+    src/osx/cocoa/trackerTouchDouble.mm
+    src/osx/cocoa/trackerInput.mm
 </set>
 <set var="OSX_COCOA_HDR" hints="files">
     wx/osx/cocoa/chkconf.h
@@ -3327,6 +3329,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     src/aui/tabart.cpp
     src/xrc/xh_aui.cpp
     src/xrc/xh_auitoolb.cpp
+    src/aui/tabdocmdi.cpp
 </set>
 <set var="AUI_SRC" hints="files">
     $(AUI_CMN_SRC)
@@ -3344,6 +3347,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/aui/tabart.h
     wx/xrc/xh_aui.h
     wx/xrc/xh_auitoolb.h
+    wx/aui/tabdocmdi.h
 </set>
 <set var="AUI_HDR" hints="files">
     $(AUI_CMN_HDR)
@@ -3465,6 +3469,8 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
 <set var="STC_CMN_HDR" hints="files">
     wx/stc/stc.h
     wx/xrc/xh_styledtextctrl.h
+    wx/bricsys/LexLispShared.hxx
+    wx/bricsys/LexLisp.hxx
 </set>
 
 <set var="STC_OSX_COCOA_SRC" hints="files">

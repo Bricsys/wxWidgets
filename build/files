@@ -634,6 +634,7 @@ BASE_CMN_HDR =
     wx/tls.h
     wx/tokenzr.h
     wx/tracker.h
+    wx/trackpadstate.h
     wx/translation.h
     wx/txtstrm.h
     wx/typeinfo.h
@@ -1501,6 +1502,7 @@ GTK_HDR =
     wx/gtk/textentry.h
     wx/gtk/tglbtn.h
     wx/gtk/toolbar.h
+    wx/trackpadstate.h
 
 GTK2_HDR =
     $(GTK_HDR)
@@ -2462,6 +2464,7 @@ OSX_SHARED_HDR =
     wx/generic/listctrl.h
     wx/generic/prntdlgg.h
     wx/generic/statusbr.h
+    wx/trackpadstate.h
 
 # wxOSX/Cocoa
 
@@ -2511,6 +2514,8 @@ OSX_COCOA_SRC =
     src/osx/cocoa/textctrl.mm
     src/osx/cocoa/tglbtn.mm
     src/osx/cocoa/toolbar.mm
+    src/osx/cocoa/trackerInput.mm
+    src/osx/cocoa/trackerTouchDouble.mm
     src/osx/cocoa/tooltip.mm
     src/osx/cocoa/window.mm
     src/osx/core/display.cpp
@@ -2530,6 +2535,8 @@ OSX_COCOA_HDR =
     wx/osx/cocoa/evtloop.h
     wx/osx/cocoa/private.h
     wx/osx/cocoa/stdpaths.h
+    wx/osx/cocoa/trackerInput.h
+    wx/osx/cocoa/trackerTouchDouble.h
     wx/osx/dataview.h
     wx/osx/datectrl.h
     wx/osx/datetimectrl.h
@@ -3030,6 +3037,7 @@ AUI_CMN_SRC =
     src/aui/dockart.cpp
     src/aui/floatpane.cpp
     src/aui/auibook.cpp
+    src/aui/tabdocmdi.cpp
     src/aui/auibar.cpp
     src/aui/tabmdi.cpp
     src/aui/tabart.cpp
@@ -3042,6 +3050,7 @@ AUI_CMN_HDR =
     wx/aui/auibook.h
     wx/aui/auibar.h
     wx/aui/tabmdi.h
+    wx/aui/tabdocmdi.h
     wx/aui/aui.h
     wx/aui/tabart.h
     wx/xrc/xh_aui.h
@@ -3159,6 +3168,8 @@ STC_CMN_SRC =
 STC_CMN_HDR =
     wx/stc/stc.h
     wx/xrc/xh_styledtextctrl.h
+    wx/bricsys/LexLispShared.hxx
+    wx/bricsys/LexLisp.hxx
 
 STC_OSX_COCOA_SRC =
     src/stc/PlatWXcocoa.mm

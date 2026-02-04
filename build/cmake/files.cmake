@@ -658,6 +658,7 @@ set(BASE_CMN_HDR
     wx/lzmastream.h
     wx/localedefs.h
     wx/uilocale.h
+    wx/trackpadstate.h
 )
 
 set(NET_UNIX_SRC
@@ -2543,6 +2544,8 @@ set(OSX_COCOA_SRC
     src/osx/core/sound.cpp
     src/osx/cocoa/statbmp.mm
     src/osx/core/display.cpp
+    src/osx/cocoa/trackerTouchDouble.mm
+    src/osx/cocoa/trackerInput.mm
 )
 
 set(OSX_COCOA_HDR
@@ -2562,6 +2565,8 @@ set(OSX_COCOA_HDR
     wx/osx/datetimectrl.h
     wx/osx/taskbarosx.h
     wx/osx/dvrenderers.h
+    wx/osx/cocoa/trackerTouchDouble.h
+    wx/osx/cocoa/trackerInput.h
 )
 
 set(OSX_IPHONE_SRC
@@ -3095,10 +3100,10 @@ set(AUI_CMN_SRC
     src/aui/auibook.cpp
     src/aui/auibar.cpp
     src/aui/tabmdi.cpp
-    src/aui/tabdocmdi.cpp
     src/aui/tabart.cpp
     src/xrc/xh_aui.cpp
     src/xrc/xh_auitoolb.cpp
+    src/aui/tabdocmdi.cpp
 )
 
 set(AUI_CMN_HDR
@@ -3108,11 +3113,11 @@ set(AUI_CMN_HDR
     wx/aui/auibook.h
     wx/aui/auibar.h
     wx/aui/tabmdi.h
-    wx/aui/tabdocmdi.h
     wx/aui/aui.h
     wx/aui/tabart.h
     wx/xrc/xh_aui.h
     wx/xrc/xh_auitoolb.h
+    wx/aui/tabdocmdi.h
 )
 
 set(AUI_MSW_HDR
@@ -3233,8 +3238,8 @@ set(STC_CMN_SRC
 set(STC_CMN_HDR
     wx/stc/stc.h
     wx/xrc/xh_styledtextctrl.h
-    wx/bricsys/LexLispShared.hxx
     wx/bricsys/LexLisp.hxx
+    wx/bricsys/LexLispShared.hxx
 )
 
 set(STC_OSX_COCOA_SRC

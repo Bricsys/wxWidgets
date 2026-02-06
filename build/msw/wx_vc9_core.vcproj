@@ -4860,6 +4860,10 @@
 				RelativePath="..\..\include\wx\bricsys\LexLisp.hxx"
 				>
 			</File>
+			<File
+				RelativePath="..\..\include\wx\aui\tabdocmdi.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Source Files"

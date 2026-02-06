@@ -2515,6 +2515,7 @@ OSX_COCOA_SRC =
     src/osx/cocoa/tglbtn.mm
     src/osx/cocoa/toolbar.mm
     src/osx/cocoa/trackerInput.mm
+    src/osx/cocoa/touchPadGesturesDelegate.mm
     src/osx/cocoa/trackerTouchDouble.mm
     src/osx/cocoa/tooltip.mm
     src/osx/cocoa/window.mm
@@ -2536,6 +2537,7 @@ OSX_COCOA_HDR =
     wx/osx/cocoa/private.h
     wx/osx/cocoa/stdpaths.h
     wx/osx/cocoa/trackerInput.h
+    wx/osx/cocoa/touchPadGesturesDelegate.h
     wx/osx/cocoa/trackerTouchDouble.h
     wx/osx/dataview.h
     wx/osx/datectrl.h

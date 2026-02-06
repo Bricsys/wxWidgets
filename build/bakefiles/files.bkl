@@ -1607,6 +1607,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/gtk/dataview.h
     wx/gtk/dvrenderer.h
     wx/gtk/srchctrl.h
+    wx/trackpadstate.h
 </set>
 <set var="GTK2_HDR" hints="files">
     $(GTK_HDR)
@@ -2608,6 +2609,7 @@ IMPORTANT: please read docs/tech/tn0016.txt before modifying this file!
     wx/osx/appprogress.h
     wx/generic/icon.h
     wx/generic/imaglist.h
+    wx/trackpadstate.h
 </set>
 
 <!-- ====================================================================== -->

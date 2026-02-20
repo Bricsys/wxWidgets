@@ -275,6 +275,22 @@ void wxBell()
 - (void)applicationDidResignActive:(NSNotification *)notification
 {
     wxUnusedVar(notification);
+
+//    if( wxTheApp->m_pAppMenuOSX )
+//    {
+//        wxMenuItem* p_MenuItemHide =
+//        wxTheApp->m_pAppMenuOSX->FindItem(wxApp::s_macHideMenuItemId);
+//        
+//        wxMenuItem* p_MenuItemHideOthers =
+//        wxTheApp->m_pAppMenuOSX->FindItem(wxApp::s_macHideOthersMenuItemId);
+//        
+//        if(!p_MenuItemHide->IsEnabled())
+//            p_MenuItemHide->Enable(true);
+//        
+//        if(!p_MenuItemHideOthers->IsEnabled())
+//            p_MenuItemHideOthers->Enable(true);
+//    }
+
     if ( wxTheApp )
         wxTheApp->SetActive( false , NULL ) ;
 }
@@ -382,6 +398,21 @@ NSLayoutManager* gNSLayoutManager = nil;
 WX_NSObject wxApp::OSXCreateAppController()
 {
     return [[wxNSAppController alloc] init];
+}
+
+void wxApp::hideOtherApplicationsOSX()
+{
+    [[wxNSApplication sharedApplication] hideOtherApplications:nil];
+}
+
+void wxApp::showOtherApplicationsOSX()
+{
+    [[wxNSApplication sharedApplication] unhideAllApplications:nil];
+}
+
+void wxApp::hideAppOSX()
+{
+    [[wxNSApplication sharedApplication] hide:nil];
 }
 
 bool wxApp::DoInitGui()

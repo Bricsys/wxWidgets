@@ -41,7 +41,7 @@ public:
 
     // Bricsys change: add support for entry enable/disable
     wxAcceleratorEntry *GetEntry(int keyCode, int keyFlags);
-    void enableEntries( const int* entries, int length, bool enable );
+    void EnableEntries( const int* entries, int length, bool enable );
 
 protected:
     // ref counting code

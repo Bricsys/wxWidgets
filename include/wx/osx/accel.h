@@ -27,6 +27,15 @@ public:
     bool IsOk() const;
 
     int GetCommand( wxKeyEvent &event );
+
+    // Bricsys change: add support for accelerator table modification and entry enable/disable
+    void Add(const wxAcceleratorEntry& entry);
+    void Remove(const wxAcceleratorEntry& entry);
+    wxAcceleratorEntry* GetEntry(int keyCode, int keyFlags);
+    void EnableEntries( const int* entries, int length, bool enable );
+
+    wxObjectRefData* CreateRefData() const;
+    wxObjectRefData* CloneRefData(const wxObjectRefData *data) const;
 };
 
 #endif

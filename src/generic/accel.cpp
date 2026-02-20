@@ -225,7 +225,7 @@ wxAcceleratorTable::GetEntry(int keyCode, int keyFlags)
     return NULL;
 }
 
-void wxAcceleratorTable::enableEntries( const int* entries, int length, bool enable )
+void wxAcceleratorTable::EnableEntries( const int* entries, int length, bool enable )
 {
     if ( !IsOk() )
     {

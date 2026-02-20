@@ -407,7 +407,6 @@ wxApp::wxApp()
     m_macCurrentEvent = NULL ;
     m_macCurrentEventHandlerCallRef = NULL ;
     m_macPool = sm_isEmbedded ? NULL : new wxMacAutoreleasePool();
-    m_pAppMenuOSX = NULL;
 }
 
 wxApp::~wxApp()

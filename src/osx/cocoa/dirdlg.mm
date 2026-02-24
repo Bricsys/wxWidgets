@@ -137,6 +137,7 @@ int wxDirDialog::ShowModal()
     return GetReturnCode();
 }
 
+    [p_Panel setAllowedFileTypes:[[NSArray alloc] initWithObjects:@"app",@"APP", nil]];
 void wxDirDialog::ModalFinishedCallback(void* panel, int returnCode)
 {
     int result = wxID_CANCEL;

@@ -38,7 +38,7 @@ def initialize_and_update_submodules(sub_modules, cwd, env):
 
     if needs_init:
         print("Submodules not initialized. Running git submodule update --init...")
-        command_text = f'git submodule update --init '
+        command_text = 'git submodule update --init '
         for module in sub_modules:
             run_command(command_text + module, cwd=cwd, env=env)
     else:

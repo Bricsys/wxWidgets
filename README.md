@@ -87,4 +87,4 @@ Have fun!
 
 The wxWidgets Team.
 
-Dummy 6
+Dummy 7

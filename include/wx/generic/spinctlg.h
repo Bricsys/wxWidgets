@@ -398,7 +398,7 @@ public:
     // operations
     void SetValue(const wxString& value) wxOVERRIDE
         { wxSpinCtrlGenericBase::SetValue(value); }
-    void SetValue(double value)                 { DoSetValue(value, SendEvent_None); }
+    void SetValue(double value)                 { wxSpinCtrlGenericBase::DoSetValue(value, SendEvent_None); }
     void SetRange(double minVal, double maxVal) { DoSetRange(minVal, maxVal); }
     void SetIncrement(double inc);
     void SetDigits(unsigned digits);

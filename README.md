@@ -85,3 +85,5 @@ check [our guidelines](.github/CONTRIBUTING.md) if you'd like to do it.
 Have fun!
 
 The wxWidgets Team.
+
+Trigger dummy build

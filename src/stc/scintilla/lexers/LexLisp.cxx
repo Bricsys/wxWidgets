@@ -31,8 +31,9 @@ using namespace Scintilla;
 #if 1  // Bricsys change : adjusted for AutoLISP syntax
 
 #define wxSTC_LEX_AUTOMATIC 1000 // defined in stc/stc.h, but we can't include it in Scintilla
+#define SCLEX_DCL  ((int)(wxSTC_LEX_AUTOMATIC - 1)) /* last before SCLEX_AUTOMATIC */
 
-#include "wx/bricsys/LexLisp.hxx"
+#include "wx/bricsys/LexLispShared.hxx"
 #include "Catalogue.h"
 
 // AutoLISP : Colourise + Fold

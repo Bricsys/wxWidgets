@@ -381,6 +381,10 @@ public:
 
     wxRegion             m_nativeUpdateRegion;  // not transformed for RTL
 
+    // Fractional DPI scale factor received from the Wayland compositor via the
+    // wp_fractional_scale_v1 protocol. Negative means not yet received.
+    double               m_waylandScaleFactor;
+
 protected:
     // implement the base class pure virtuals
     virtual void DoGetTextExtent(const wxString& string,

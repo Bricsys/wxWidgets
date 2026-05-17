@@ -46,6 +46,7 @@
 #include "wx/gtk/private/win_gtk.h"
 #include "wx/gtk/private/backend.h"
 #include "wx/private/textmeasure.h"
+#include <gio/gio.h>
 using namespace wxGTKImpl;
 
 #ifdef GDK_WINDOWING_X11
@@ -669,12 +670,7 @@ void EnsureWpFractionalScaleManager(struct wl_display* wlDisplay)
 
     struct wl_registry* registry = wl_display_get_registry(wlDisplay);
     wl_registry_add_listener(registry, &gs_registryListener, NULL);
-    // Synchronously receive all registry globals so the manager is bound
-    // before we try to use it.
     wl_display_roundtrip(wlDisplay);
-    // The registry handle is intentionally not destroyed: it is needed to
-    // receive future global-remove events if the compositor removes the
-    // manager (rare but correct to handle gracefully via the NULL check).
 }
 
 // Release the per-window fractional scale Wayland object, if any.
@@ -2754,41 +2750,43 @@ void wxWindowGTK::GTKHandleRealized()
     // surface for every child widget in the hierarchy.  Calling
     // get_fractional_scale() twice on the same surface is a Wayland protocol
     // error (duplicate_fractional_scale) that silently kills the connection.
-    if (GTK_IS_WINDOW(m_widget) &&
-        gs_fsStateMap.find(this) == gs_fsStateMap.end())
     {
-        GdkWindow* gdkWindow = gtk_widget_get_window(m_widget);
-        if (gdkWindow && IsWayland(gdkWindow))
+        const bool isGtkWindow = GTK_IS_WINDOW(m_widget);
+        const bool alreadySetUp = gs_fsStateMap.find(this) != gs_fsStateMap.end();
+
+        if (isGtkWindow && !alreadySetUp)
         {
-            GdkDisplay* gdkDisplay = gtk_widget_get_display(m_widget);
-            if (GDK_IS_WAYLAND_DISPLAY(gdkDisplay))
+            GdkWindow* gdkWindow = gtk_widget_get_window(m_widget);
+            const bool isWayland = gdkWindow && IsWayland(gdkWindow);
+
+            if (gdkWindow && isWayland)
             {
-                struct wl_display* wlDisplay =
-                    gdk_wayland_display_get_wl_display(gdkDisplay);
+                GdkDisplay* gdkDisplay = gtk_widget_get_display(m_widget);
 
-                EnsureWpFractionalScaleManager(wlDisplay);
-
-                if (gs_wpFractionalScaleManager)
+                if (GDK_IS_WAYLAND_DISPLAY(gdkDisplay))
                 {
-                    struct wl_surface* surface =
-                        gdk_wayland_window_get_wl_surface(gdkWindow);
-                    if (surface)
-                    {
-                        auto* state = new wxWaylandFractionalScaleState;
-                        state->window = this;
-                        state->obj = wxWlGetFractionalScale(
-                            gs_wpFractionalScaleManager, surface);
-                        wxWlFractionalScaleAddListener(
-                            state->obj, &gs_fsListener, state);
-                        gs_fsStateMap[this] = state;
+                    struct wl_display* wlDisplay =
+                        gdk_wayland_display_get_wl_display(gdkDisplay);
 
-                        // GDK3 dispatches its own custom Wayland event queue,
-                        // not the default queue where our objects live.  Do a
-                        // synchronous roundtrip so the compositor's initial
-                        // preferred_scale event (sent right after object
-                        // creation) is dispatched to our callback now, before
-                        // any caller reads m_waylandScaleFactor.
-                        wl_display_roundtrip(wlDisplay);
+                    EnsureWpFractionalScaleManager(wlDisplay);
+
+                    if (gs_wpFractionalScaleManager)
+                    {
+                        struct wl_surface* surface =
+                            gdk_wayland_window_get_wl_surface(gdkWindow);
+
+                        if (surface)
+                        {
+                            auto* state = new wxWaylandFractionalScaleState;
+                            state->window = this;
+                            state->obj = wxWlGetFractionalScale(
+                                gs_wpFractionalScaleManager, surface);
+                            wxWlFractionalScaleAddListener(
+                                state->obj, &gs_fsListener, state);
+                            gs_fsStateMap[this] = state;
+
+                            wl_display_roundtrip(wlDisplay);
+                        }
                     }
                 }
             }
@@ -4889,6 +4887,94 @@ double wxWindowGTK::GetContentScaleFactor() const
 }
 
 #if defined(GDK_WINDOWING_X11) && defined(__WXGTK3__)
+// Under XWayland, GNOME's fractional scaling is handled entirely by the
+// compositor (Mutter) — XRandR CRTC transforms are identity, so the XRandR
+// approach below returns the integer GDK scale.  As a fallback, query the
+// actual per-monitor fractional scale from Mutter's D-Bus API.
+//
+// org.gnome.Mutter.DisplayConfig.GetCurrentState() returns logical monitors
+// with their configured scale.  We match by logical position (x, y).
+static double wxGetMutterDisplayConfigScale(int logicalX, int logicalY)
+{
+    // Simple cache: avoid repeated D-Bus calls for the same position.
+    static int s_cachedX = INT_MIN, s_cachedY = INT_MIN;
+    static double s_cachedScale = 0.0;
+    if (logicalX == s_cachedX && logicalY == s_cachedY && s_cachedScale > 0.0)
+        return s_cachedScale;
+
+    GError* error = NULL;
+    GDBusConnection* conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error);
+    if (!conn)
+    {
+        g_clear_error(&error);
+        return 0.0;
+    }
+
+    GVariant* result = g_dbus_connection_call_sync(
+        conn,
+        "org.gnome.Mutter.DisplayConfig",
+        "/org/gnome/Mutter/DisplayConfig",
+        "org.gnome.Mutter.DisplayConfig",
+        "GetCurrentState",
+        NULL,
+        NULL,
+        G_DBUS_CALL_FLAGS_NONE,
+        1000,
+        NULL,
+        &error);
+
+    if (!result)
+    {
+        g_clear_error(&error);
+        g_object_unref(conn);
+        return 0.0;
+    }
+
+    // GetCurrentState returns:
+    //   (u serial,
+    //    a(...) monitors,
+    //    a(iiduba(ssss)a{sv}) logical_monitors,
+    //    a{sv} properties)
+    // Each logical monitor: (i x, i y, d scale, u transform, b primary,
+    //                        a(ssss) monitors, a{sv} properties)
+    double scale = 0.0;
+    GVariant* logicalMonitors = g_variant_get_child_value(result, 2);
+    gsize n = g_variant_n_children(logicalMonitors);
+
+    for (gsize i = 0; i < n && scale == 0.0; i++)
+    {
+        GVariant* lm = g_variant_get_child_value(logicalMonitors, i);
+        GVariant* vx = g_variant_get_child_value(lm, 0);
+        GVariant* vy = g_variant_get_child_value(lm, 1);
+        GVariant* vs = g_variant_get_child_value(lm, 2);
+
+        gint32 x = g_variant_get_int32(vx);
+        gint32 y = g_variant_get_int32(vy);
+        gdouble s = g_variant_get_double(vs);
+
+        if (x == logicalX && y == logicalY && s > 0.0)
+            scale = s;
+
+        g_variant_unref(vs);
+        g_variant_unref(vy);
+        g_variant_unref(vx);
+        g_variant_unref(lm);
+    }
+
+    g_variant_unref(logicalMonitors);
+    g_variant_unref(result);
+    g_object_unref(conn);
+
+    if (scale > 0.0)
+    {
+        s_cachedX = logicalX;
+        s_cachedY = logicalY;
+        s_cachedScale = scale;
+    }
+
+    return scale;
+}
+
 // Returns the fractional DPI scale for the given GDK monitor on X11 by
 // reading the XRandR CRTC transform that GNOME applies when
 // x11-randr-fractional-scaling is enabled.
@@ -4934,12 +5020,11 @@ static double wxGetX11DPIScaleForMonitor(GdkMonitor* mon, Display* xdpy)
             if (XRRGetCrtcTransform(xdpy, res->crtcs[i], &attrs) && attrs)
             {
                 const XTransform& t = attrs->currentTransform;
+                const double m00 = XFixedToDouble(t.matrix[0][0]);
                 const double w22 = XFixedToDouble(t.matrix[2][2]);
                 if (w22 != 0.0)
                 {
-                    // sx > 1: framebuffer is larger than the physical display,
-                    // meaning fractional scaling is active.
-                    const double sx = XFixedToDouble(t.matrix[0][0]) / w22;
+                    const double sx = m00 / w22;
                     if (sx > 0.0)
                         fracScale = gdkScale / sx;
                 }
@@ -4947,8 +5032,6 @@ static double wxGetX11DPIScaleForMonitor(GdkMonitor* mon, Display* xdpy)
             }
             if (fracScale == 0.0)
             {
-                // No transform (identity) → the fractional scale equals the
-                // GDK integer scale (no sub-integer fractional correction).
                 fracScale = gdkScale;
             }
         }
@@ -5014,7 +5097,22 @@ double wxWindowGTK::GetDPIScaleFactor() const
                 Display* xdpy = GDK_DISPLAY_XDISPLAY(gdkDpy);
                 const double scale = wxGetX11DPIScaleForMonitor(mon, xdpy);
                 if (scale > 0.0)
+                {
+                    // If XRandR returned the integer GDK scale (identity
+                    // transform), we may be on XWayland where CRTC transforms
+                    // aren't used.  Try Mutter's D-Bus API instead.
+                    const int gdkScale = gdk_monitor_get_scale_factor(mon);
+                    if (scale == (double)gdkScale && getenv("WAYLAND_DISPLAY"))
+                    {
+                        GdkRectangle geo;
+                        gdk_monitor_get_geometry(mon, &geo);
+                        const double dbusScale =
+                            wxGetMutterDisplayConfigScale(geo.x, geo.y);
+                        if (dbusScale > 0.0)
+                            return dbusScale;
+                    }
                     return scale;
+                }
             }
         }
     }

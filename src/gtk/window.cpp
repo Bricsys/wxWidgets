@@ -50,6 +50,7 @@ using namespace wxGTKImpl;
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#include <X11/extensions/Xrandr.h>
 #include "wx/x11/private/wrapxkb.h"
 #else
 typedef guint KeySym;
@@ -4661,8 +4662,102 @@ double wxWindowGTK::GetContentScaleFactor() const
     return scaleFactor;
 }
 
+#if defined(GDK_WINDOWING_X11) && defined(__WXGTK3__)
+// Returns the fractional DPI scale for the given GDK monitor on X11 by
+// reading the XRandR CRTC transform that GNOME applies when
+// x11-randr-fractional-scaling is enabled.
+//
+// GNOME achieves fractional scaling on X11 by rendering to a framebuffer
+// that is GDK_integer_scale× larger than the logical resolution and then
+// downscaling it to the physical display via an XRandR CRTC transform.
+// The transform matrix element [0][0]/[2][2] is the ratio
+// framebuffer_pixels / physical_pixels (> 1 when active).  Dividing the
+// GDK integer scale by this ratio recovers the actual fractional scale
+// (e.g. GDK_scale=2 and transform_sx=4/3 → 2/(4/3) = 1.5).
+//
+// Returns 0.0 on failure (caller should fall back to GetContentScaleFactor).
+static double wxGetX11DPIScaleForMonitor(GdkMonitor* mon, Display* xdpy)
+{
+    GdkRectangle geo;
+    gdk_monitor_get_geometry(mon, &geo);
+    const int gdkScale = gdk_monitor_get_scale_factor(mon);
+
+    // XRandR CRTC positions are in framebuffer pixels
+    // = GDK logical coordinates × GDK integer scale.
+    const int crtcX = geo.x * gdkScale;
+    const int crtcY = geo.y * gdkScale;
+
+    Window root = DefaultRootWindow(xdpy);
+    XRRScreenResources* res = XRRGetScreenResourcesCurrent(xdpy, root);
+    if (!res)
+        return 0.0;
+
+    double fracScale = 0.0;
+    for (int i = 0; i < res->ncrtc && fracScale == 0.0; i++)
+    {
+        XRRCrtcInfo* crtc = XRRGetCrtcInfo(xdpy, res, res->crtcs[i]);
+        if (!crtc || crtc->mode == None)
+        {
+            XRRFreeCrtcInfo(crtc);
+            continue;
+        }
+
+        if ((int)crtc->x == crtcX && (int)crtc->y == crtcY)
+        {
+            XRRCrtcTransformAttributes* attrs = NULL;
+            if (XRRGetCrtcTransform(xdpy, res->crtcs[i], &attrs) && attrs)
+            {
+                const XTransform& t = attrs->currentTransform;
+                const double w22 = XFixedToDouble(t.matrix[2][2]);
+                if (w22 != 0.0)
+                {
+                    // sx > 1: framebuffer is larger than the physical display,
+                    // meaning fractional scaling is active.
+                    const double sx = XFixedToDouble(t.matrix[0][0]) / w22;
+                    if (sx > 0.0)
+                        fracScale = gdkScale / sx;
+                }
+                XFree(attrs);
+            }
+            if (fracScale == 0.0)
+            {
+                // No transform (identity) → the fractional scale equals the
+                // GDK integer scale (no sub-integer fractional correction).
+                fracScale = gdkScale;
+            }
+        }
+        XRRFreeCrtcInfo(crtc);
+    }
+
+    XRRFreeScreenResources(res);
+    return fracScale;
+}
+#endif // GDK_WINDOWING_X11 && __WXGTK3__
+
 double wxWindowGTK::GetDPIScaleFactor() const
 {
+#if defined(GDK_WINDOWING_X11) && defined(__WXGTK3__)
+    // On X11 with GNOME fractional scaling (x11-randr-fractional-scaling),
+    // GetContentScaleFactor() returns an integer GDK scale (e.g. 2) while
+    // the user-configured DPI scale can be fractional (e.g. 1.5).  Recover
+    // the actual scale from the XRandR CRTC transform applied by GNOME.
+    if (m_widget && IsX11(NULL))
+    {
+        GdkWindow* gdkWin = gtk_widget_get_window(m_widget);
+        if (gdkWin && GDK_IS_X11_WINDOW(gdkWin))
+        {
+            GdkDisplay* gdkDpy = gdk_window_get_display(gdkWin);
+            GdkMonitor* mon = gdk_display_get_monitor_at_window(gdkDpy, gdkWin);
+            if (mon)
+            {
+                Display* xdpy = GDK_DISPLAY_XDISPLAY(gdkDpy);
+                const double scale = wxGetX11DPIScaleForMonitor(mon, xdpy);
+                if (scale > 0.0)
+                    return scale;
+            }
+        }
+    }
+#endif // GDK_WINDOWING_X11 && __WXGTK3__
     // Under GTK 3 DPI scale factor is the same as content scale factor, while
     // under GTK 2 both are always 1, so they're still the same.
     return GetContentScaleFactor();

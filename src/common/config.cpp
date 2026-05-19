@@ -452,11 +452,11 @@ enum Bracket
   Bracket_Max
 };
 
-/** Bricsys change
-/* GV: wxExpandEnvVars incorrectly processes %ProgramFiles(x86)% (it adds one more "x86%" token)
-because brackets are not considered as valid characters for environment variable name;
-We have to extend number of valid chars for environment variable names;
-*/
+/* Bricsys change
+ * GV: wxExpandEnvVars incorrectly processes %ProgramFiles(x86)% (it adds one more "x86%" token)
+ * because brackets are not considered as valid characters for environment variable name;
+ * We have to extend number of valid chars for environment variable names;
+ */
 class EnvVarNameValidator
 {
 public:
@@ -574,11 +574,11 @@ wxString wxExpandEnvVars(const wxString& str)
         }
         break;
 
-/** Bricsys change
-/* GV: case below is commented out for _WIN32 platform since backslashes in paths
-/* are treated as escape symbol for following '%' or'$'  that prevents expansion
-/* of environment variables located after such backslashes.
-*/
+/* Bricsys change
+ * GV: case below is commented out for _WIN32 platform since backslashes in paths
+ * are treated as escape symbol for following '%' or'$'  that prevents expansion
+ * of environment variables located after such backslashes.
+ */
 #ifndef __WINDOWS__
       case wxT('\\'):
         // backslash can be used to suppress special meaning of % and $

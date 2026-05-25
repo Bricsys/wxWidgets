@@ -36,6 +36,9 @@
 #include "wx/msw/private.h"
 #include "wx/msw/private/customdraw.h"
 #include "wx/msw/private/winstyle.h"
+// start Bricsys change
+#include "wx/msw/uxtheme.h"
+// end Bricsys change
 
 #ifndef HDM_SETBITMAPMARGIN
     #define HDM_SETBITMAPMARGIN 0x1234
@@ -973,6 +976,131 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
         // ------------
 
         case NM_CUSTOMDRAW:
+            // start Bricsys change
+            // When both background and foreground custom colours are set, draw
+            // header items ourselves to ensure they are respected. Windows
+            // visual styles rendering (DrawThemeBackground/DrawThemeText)
+            // ignores both SetBkColor and SetTextColor, so we fill the
+            // background and draw the text directly (refs RM-73429).
+            //
+            // CDIS_HOT is set by the HEADER32 before sending CDDS_ITEMPREPAINT,
+            // so we detect the hover state here and brighten the background to
+            // provide a visible hover highlight even though we skip native
+            // drawing with CDRF_SKIPDEFAULT.
+            if ( m_hasBgCol && m_hasFgCol )
+            {
+                NMCUSTOMDRAW* const nmcd = reinterpret_cast<NMCUSTOMDRAW*>(lParam);
+                switch ( nmcd->dwDrawStage )
+                {
+                    case CDDS_PREPAINT:
+                        *result = CDRF_NOTIFYITEMDRAW;
+                        return true;
+
+                    case CDDS_ITEMPREPAINT:
+                    {
+                        // Save HDC state; restored unconditionally at the end.
+                        const int savedDC = ::SaveDC(nmcd->hdc);
+
+                        // Fill background with our custom colour, brightening
+                        // it slightly when the item is hot to provide a hover
+                        // highlight.  CDIS_HOT is reliably set in CDDS_ITEMPREPAINT
+                        // by the HEADER32 before it sends the notification.
+                        wxColour bgColor = m_backgroundColour;
+                        if ( nmcd->uItemState & CDIS_HOT )
+                        {
+                            // Bidirectional blend: darken light backgrounds,
+                            // lighten dark ones, so hover is visible in both
+                            // light and dark themes.
+                            const int lum = (77  * bgColor.Red()   +
+                                             150 * bgColor.Green() +
+                                             29  * bgColor.Blue()) >> 8;
+                            if ( lum > 128 )
+                                bgColor = wxColour(bgColor.Red()   * 4 / 5,
+                                                   bgColor.Green() * 4 / 5,
+                                                   bgColor.Blue()  * 4 / 5);
+                            else
+                                bgColor = wxColour(
+                                    bgColor.Red()   + (255 - bgColor.Red())   / 5,
+                                    bgColor.Green() + (255 - bgColor.Green()) / 5,
+                                    bgColor.Blue()  + (255 - bgColor.Blue())  / 5);
+                        }
+                        HBRUSH bgBrush = ::CreateSolidBrush(wxColourToRGB(bgColor));
+                        if ( bgBrush )
+                        {
+                            ::FillRect(nmcd->hdc, &nmcd->rc, bgBrush);
+                            ::DeleteObject(bgBrush);
+                        }
+
+                        // Retrieve format flags for alignment and sort arrow.
+                        HDITEM hdi = {};
+                        hdi.mask = HDI_FORMAT;
+                        ::SendMessage(GetHwnd(), HDM_GETITEM, nmcd->dwItemSpec,
+                                      reinterpret_cast<LPARAM>(&hdi));
+
+                        // Use DPI-aware padding instead of hard-coded values.
+                        const int padding = ::GetSystemMetrics(SM_CXEDGE) * 2;
+                        RECT textRect = nmcd->rc;
+                        textRect.left  += padding;
+                        textRect.right -= padding;
+
+                        // Draw the sort arrow via visual theme when the column
+                        // is sorted, and shrink the text rect to avoid overlap.
+                        if ( hdi.fmt & (HDF_SORTUP | HDF_SORTDOWN) )
+                        {
+                            wxUxThemeHandle hTheme(this, L"Header");
+                            if ( hTheme )
+                            {
+                                const int arrowState = (hdi.fmt & HDF_SORTUP)
+                                                        ? HSAS_SORTEDUP
+                                                        : HSAS_SORTEDDOWN;
+                                SIZE arrowSize = {};
+                                if ( SUCCEEDED(::GetThemePartSize(
+                                        hTheme, nmcd->hdc,
+                                        HP_HEADERSORTARROW, arrowState,
+                                        NULL, TS_TRUE, &arrowSize)) )
+                                {
+                                    const int h = nmcd->rc.bottom - nmcd->rc.top;
+                                    RECT arrowRect;
+                                    arrowRect.right  = nmcd->rc.right - padding;
+                                    arrowRect.left   = arrowRect.right - arrowSize.cx;
+                                    arrowRect.top    = nmcd->rc.top + (h - arrowSize.cy) / 2;
+                                    arrowRect.bottom = arrowRect.top + arrowSize.cy;
+                                    ::DrawThemeBackground(hTheme, nmcd->hdc,
+                                                          HP_HEADERSORTARROW, arrowState,
+                                                          &arrowRect, NULL);
+                                    textRect.right = arrowRect.left - padding;
+                                }
+                            }
+                        }
+
+                        // Get column title from wxHeaderColumn via logical index
+                        // (avoids fixed-size HDM_GETITEM buffer truncation).
+                        const int colIdx = MSWFromNativeIdx(
+                                               static_cast<int>(nmcd->dwItemSpec));
+                        const wxString& label = m_header.GetColumn(colIdx).GetTitle();
+
+                        // Draw text with our custom foreground colour, respecting
+                        // per-column alignment from the native item format flags.
+                        ::SetTextColor(nmcd->hdc, wxColourToRGB(m_foregroundColour));
+                        ::SetBkMode(nmcd->hdc, TRANSPARENT);
+
+                        UINT dtFlags = DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS;
+                        if ( hdi.fmt & HDF_CENTER )
+                            dtFlags |= DT_CENTER;
+                        else if ( hdi.fmt & HDF_RIGHT )
+                            dtFlags |= DT_RIGHT;
+                        else
+                            dtFlags |= DT_LEFT;
+
+                        ::DrawText(nmcd->hdc, label.wc_str(), -1, &textRect, dtFlags);
+
+                        ::RestoreDC(nmcd->hdc, savedDC);
+                        *result = CDRF_SKIPDEFAULT;
+                        return true;
+                    }
+                }
+            }
+            // end Bricsys change
             if ( m_customDraw )
             {
                 *result = m_customDraw->HandleCustomDraw(lParam);

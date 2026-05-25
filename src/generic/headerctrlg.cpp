@@ -594,8 +594,8 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
         // DrawHeaderButton, so the native renderer never overwrites our hover
         // highlight (refs RM-73429).
         //
-        // On macOS, HIThemeDrawButton ignores wxCONTROL_CURRENT entirely and
-        // would also repaint the background, erasing our highlight.
+        // Native renderers on Unix (GTK, macOS) may ignore wxCONTROL_CURRENT
+        // or repaint the background, erasing our custom hover highlight.
         {
             wxColour bgColor = m_columnLabelBackgroundColour;
             if ( state & wxCONTROL_CURRENT )

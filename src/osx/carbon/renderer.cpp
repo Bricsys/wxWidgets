@@ -172,11 +172,21 @@ int wxRendererMac::DrawHeaderButton( wxWindow *win,
 {
 
 // start Bricsys change
-// Don't use native rendering
-// We draw the button using the dc
-#if 0
+    // Use generic rendering when a "light" label colour is set (luminance >
+    // 128 means a near-white text → dark BricsCAD theme on a light OS) or
+    // when the OS itself is in dark mode.  In both cases HITheme would ignore
+    // our custom colours.  Only fall through to native macOS rendering when
+    // the OS *and* the app are in light mode (refs RM-73429).
+    if ( params && params->m_labelColour.IsOk() )
+    {
+        const wxColour& fg = params->m_labelColour;
+        const int luminance = (77 * fg.Red() + 150 * fg.Green() + 29 * fg.Blue()) >> 8;
+        if ( luminance > 128 )
+            return DrawHeaderButtonContents(win, dc, rect, flags, sortArrow, params);
+    }
     if ( wxSystemSettings::GetAppearance().IsDark() )
-        return wxRendererNative::GetGeneric().DrawHeaderButton(win, dc,  rect, flags, sortArrow, params);
+        return wxRendererNative::GetGeneric().DrawHeaderButton(win, dc, rect, flags, sortArrow, params);
+// end Bricsys change
 
     const wxCoord x = rect.x;
     const wxCoord y = rect.y;
@@ -239,12 +249,8 @@ int wxRendererMac::DrawHeaderButton( wxWindow *win,
     }
     flags &= ~wxCONTROL_PRESSED;
 
-#endif
-
-    return DrawHeaderButtonContents(win, dc, rect, flags, sortArrow, params);
-// end Bricsys change
+    return DrawHeaderButtonContents(win, dc, newRect, flags, sortArrow, params);
 }
-
 
 int wxRendererMac::GetHeaderButtonHeight(wxWindow* WXUNUSED(win))
 {

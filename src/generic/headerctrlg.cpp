@@ -60,6 +60,7 @@ void wxHeaderCtrl::Init()
 #ifdef __UNIX__
     m_columnLabelBackgroundColour = wxColour(255, 255, 255);
     m_columnLabelTextColour = wxColour(0, 0, 0);
+    m_hasCustomColours = false;
 #endif
     // end Bricsys change
 }
@@ -86,10 +87,12 @@ bool wxHeaderCtrl::Create(wxWindow *parent,
 #ifdef __UNIX__
 void wxHeaderCtrl::SetColumnLabelBackgroundColour( const wxColour& colour ) {
     m_columnLabelBackgroundColour = colour;
+    m_hasCustomColours = true;
 }
 
 void wxHeaderCtrl::SetColumnLabelTextColour(const wxColour& colour) {
     m_columnLabelTextColour = colour;
+    m_hasCustomColours = true;
 }
 #endif
 // end Bricsys change
@@ -586,6 +589,8 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
 
         // start Bricsys change
 #ifdef __UNIX__
+        if ( m_hasCustomColours )
+        {
         params.m_labelColour = m_columnLabelTextColour;
 
         // Draw per-item background so that hover (wxCONTROL_CURRENT) is
@@ -619,6 +624,7 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
             dc.SetPen(*wxTRANSPARENT_PEN);
             dc.DrawRectangle(wxRect(xpos, 0, colWidth, h));
         }
+        } // m_hasCustomColours
 #endif
         // end Bricsys change
 
@@ -631,6 +637,8 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
 
         // start Bricsys change
 #ifdef __UNIX__
+        if ( m_hasCustomColours )
+        {
         // Background already painted above; draw only text/arrow so native
         // renderers do not repaint the background and erase the hover colour.
         wxRendererNative::Get().DrawHeaderButtonContents
@@ -642,7 +650,10 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
                                     sortArrow,
                                     &params
                                 );
-#else
+        }
+        else
+        {
+#endif
         // end Bricsys change
         wxRendererNative::Get().DrawHeaderButton
                                 (
@@ -654,6 +665,8 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
                                     &params
                                 );
         // start Bricsys change
+#ifdef __UNIX__
+        } // m_hasCustomColours
 #endif
         // end Bricsys change
 

@@ -1192,6 +1192,21 @@ bool wxHeaderCtrl::Create(wxWindow *parent,
 
     Bind(wxEVT_SIZE, &wxHeaderCtrl::OnSize, this);
 
+    // start Bricsys change
+    // wxCompositeWindow only forwards key and focus events from child parts
+    // to the composite parent — mouse events are NOT forwarded automatically.
+    // Forward wxEVT_MOTION from the native HWND child so that handlers bound
+    // on GetGridColLabelWindow() (which returns this wxHeaderCtrl) receive
+    // mouse-move events.  m_nativeControl fills this window at offset (0,0),
+    // so client coordinates are identical and need no translation (refs RM-73429).
+    m_nativeControl->Bind(wxEVT_MOTION, [this](wxMouseEvent& event) {
+        event.SetEventObject(this);
+        event.SetId(GetId());
+        if ( !ProcessWindowEvent(event) )
+            event.Skip();
+    });
+    // end Bricsys change
+
     return true;
 }
 

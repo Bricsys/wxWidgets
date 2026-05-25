@@ -587,6 +587,38 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
         // start Bricsys change
 #ifdef __UNIX__
         params.m_labelColour = m_columnLabelTextColour;
+
+        // Draw per-item background so that hover (wxCONTROL_CURRENT) is
+        // visible when using custom colours.  We paint the background here
+        // and then call DrawHeaderButtonContents (text+arrow only) instead of
+        // DrawHeaderButton, so the native renderer never overwrites our hover
+        // highlight (refs RM-73429).
+        //
+        // On macOS, HIThemeDrawButton ignores wxCONTROL_CURRENT entirely and
+        // would also repaint the background, erasing our highlight.
+        {
+            wxColour bgColor = m_columnLabelBackgroundColour;
+            if ( state & wxCONTROL_CURRENT )
+            {
+                // Bidirectional blend: darken light backgrounds, lighten dark
+                // ones, so the hover highlight is visible in both themes.
+                const int lum = (77 * bgColor.Red() +
+                                 150 * bgColor.Green() +
+                                 29  * bgColor.Blue()) >> 8;
+                if ( lum > 128 )
+                    bgColor = wxColour(bgColor.Red()   * 4 / 5,
+                                       bgColor.Green() * 4 / 5,
+                                       bgColor.Blue()  * 4 / 5);
+                else
+                    bgColor = wxColour(
+                        bgColor.Red()   + (255 - bgColor.Red())   / 5,
+                        bgColor.Green() + (255 - bgColor.Green()) / 5,
+                        bgColor.Blue()  + (255 - bgColor.Blue())  / 5);
+            }
+            dc.SetBrush(wxBrush(bgColor));
+            dc.SetPen(*wxTRANSPARENT_PEN);
+            dc.DrawRectangle(wxRect(xpos, 0, colWidth, h));
+        }
 #endif
         // end Bricsys change
 
@@ -597,6 +629,21 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
         }
 #endif
 
+        // start Bricsys change
+#ifdef __UNIX__
+        // Background already painted above; draw only text/arrow so native
+        // renderers do not repaint the background and erase the hover colour.
+        wxRendererNative::Get().DrawHeaderButtonContents
+                                (
+                                    this,
+                                    dc,
+                                    wxRect(xpos, 0, colWidth, h),
+                                    state,
+                                    sortArrow,
+                                    &params
+                                );
+#else
+        // end Bricsys change
         wxRendererNative::Get().DrawHeaderButton
                                 (
                                     this,
@@ -606,6 +653,9 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
                                     sortArrow,
                                     &params
                                 );
+        // start Bricsys change
+#endif
+        // end Bricsys change
 
         xpos += colWidth;
         if ( xpos > w )

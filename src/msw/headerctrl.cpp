@@ -1205,14 +1205,19 @@ bool wxHeaderCtrl::Create(wxWindow *parent,
     // to the composite parent — mouse events are NOT forwarded automatically.
     // Forward wxEVT_MOTION from the native HWND child so that handlers bound
     // on GetGridColLabelWindow() (which returns this wxHeaderCtrl) receive
-    // mouse-move events.  m_nativeControl fills this window at offset (0,0),
-    // so client coordinates are identical and need no translation (refs RM-73429).
+    // mouse-move events.  ScrollHorz() can shift m_nativeControl horizontally,
+    // so translate via screen coordinates to keep the position correct in the
+    // composite parent's client space (refs RM-73429).
     // Always call event.Skip() so the native HEADER32 control also processes
     // the WM_MOUSEMOVE for HDS_HOTTRACK support.
     m_nativeControl->Bind(wxEVT_MOTION, [this](wxMouseEvent& event) {
         wxMouseEvent fwdEvent(event);
         fwdEvent.SetEventObject(this);
         fwdEvent.SetId(GetId());
+        const wxPoint pt = ScreenToClient(
+            m_nativeControl->ClientToScreen(event.GetPosition()));
+        fwdEvent.m_x = pt.x;
+        fwdEvent.m_y = pt.y;
         ProcessWindowEvent(fwdEvent);
         event.Skip(); // always let native HEADER32 process for hot-tracking
     });

@@ -1063,24 +1063,24 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                     ::FillRect(hdc, &rc, hbr);
                     ::DeleteObject(hbr);
 
-                    // Separator: contrasting line on the right edge
-                    {
-                        const int lum = (77  * bgCol.Red() +
-                                         150 * bgCol.Green() +
-                                         29  * bgCol.Blue()) >> 8;
-                        const wxColour sepCol = (lum < 128)
-                            ? wxColour(wxMin(255, (int)bgCol.Red()   + 40),
-                                       wxMin(255, (int)bgCol.Green() + 40),
-                                       wxMin(255, (int)bgCol.Blue()  + 40))
-                            : wxColour(wxMax(0, (int)bgCol.Red()   - 40),
-                                       wxMax(0, (int)bgCol.Green() - 40),
-                                       wxMax(0, (int)bgCol.Blue()  - 40));
-                        HPEN hpen = ::CreatePen(PS_SOLID, 1, wxColourToRGB(sepCol));
-                        ::SelectObject(hdc, hpen);
-                        ::MoveToEx(hdc, rc.right - 1, rc.top + 2, NULL);
-                        ::LineTo(hdc, rc.right - 1, rc.bottom - 2);
-                        ::DeleteObject(hpen);
-                    }
+                    // Separator: contrasting line on the right edge.
+                    // hpen is declared here so it can be deleted after
+                    // RestoreDC (must not delete a GDI object while it is
+                    // still selected into a DC).
+                    const int sepLum = (77  * bgCol.Red() +
+                                        150 * bgCol.Green() +
+                                        29  * bgCol.Blue()) >> 8;
+                    const wxColour sepCol = (sepLum < 128)
+                        ? wxColour(wxMin(255, (int)bgCol.Red()   + 40),
+                                   wxMin(255, (int)bgCol.Green() + 40),
+                                   wxMin(255, (int)bgCol.Blue()  + 40))
+                        : wxColour(wxMax(0, (int)bgCol.Red()   - 40),
+                                   wxMax(0, (int)bgCol.Green() - 40),
+                                   wxMax(0, (int)bgCol.Blue()  - 40));
+                    HPEN hpen = ::CreatePen(PS_SOLID, 1, wxColourToRGB(sepCol));
+                    ::SelectObject(hdc, hpen);
+                    ::MoveToEx(hdc, rc.right - 1, rc.top + 2, NULL);
+                    ::LineTo(hdc, rc.right - 1, rc.bottom - 2);
 
                     // Text
                     wxColour fgCol = attr.HasTextColour()
@@ -1107,7 +1107,8 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                     rcText.right -= 6;
                     ::DrawText(hdc, text.wc_str(), -1, &rcText, dtFlags);
 
-                    ::RestoreDC(hdc, -1);
+                    ::RestoreDC(hdc, -1);   // deselects hpen before we delete it
+                    ::DeleteObject(hpen);
 
                     *result = CDRF_SKIPDEFAULT;
                     return true;

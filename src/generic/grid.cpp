@@ -9177,12 +9177,14 @@ void wxGrid::SetLabelTextColour( const wxColour& colour )
 // start Bricsys change
 #ifdef __UNIX__
 void wxGrid::SetColumnLabelBackgroundColour( const wxColour& colour ) {
-    UseNativeColHeader();
+    if ( !UseNativeColHeader() )
+        return;
     GetGridColHeader()->SetColumnLabelBackgroundColour(colour);
 }
 
 void wxGrid::SetColumnLabelTextColour( const wxColour& colour ) {
-    UseNativeColHeader();
+    if ( !UseNativeColHeader() )
+        return;
     GetGridColHeader()->SetColumnLabelTextColour(colour);
 }
 #endif

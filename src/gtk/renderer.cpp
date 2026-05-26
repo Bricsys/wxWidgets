@@ -215,18 +215,8 @@ wxRendererGTK::DrawHeaderButton(wxWindow *win,
                                 wxHeaderButtonParams* params)
 {
 // start Bricsys change
-    // Use generic rendering when a "light" label colour is set (luminance >
-    // 128 means a near-white text → dark BricsCAD theme) or when the OS is
-    // in dark mode.  The native GTK header renderer ignores our custom colours
-    // in both cases.  Only fall through to native GTK rendering when the app
-    // and OS are in light mode (refs RM-73429).
-    if ( params && params->m_labelColour.IsOk() )
-    {
-        const wxColour& fg = params->m_labelColour;
-        const int luminance = (77 * fg.Red() + 150 * fg.Green() + 29 * fg.Blue()) >> 8;
-        if ( luminance > 128 )
-            return DrawHeaderButtonContents(win, dc, rect, flags, sortArrow, params);
-    }
+    // Use generic rendering when the OS is in dark mode; the native GTK
+    // header renderer ignores theme colours in that case (refs RM-73429).
     if ( wxSystemSettings::GetAppearance().IsDark() )
         return wxRendererNative::GetGeneric().DrawHeaderButton(win, dc, rect, flags, sortArrow, params);
 // end Bricsys change

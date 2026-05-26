@@ -172,18 +172,8 @@ int wxRendererMac::DrawHeaderButton( wxWindow *win,
 {
 
 // start Bricsys change
-    // Use generic rendering when a "light" label colour is set (luminance >
-    // 128 means a near-white text → dark BricsCAD theme on a light OS) or
-    // when the OS itself is in dark mode.  In both cases HITheme would ignore
-    // our custom colours.  Only fall through to native macOS rendering when
-    // the OS *and* the app are in light mode (refs RM-73429).
-    if ( params && params->m_labelColour.IsOk() )
-    {
-        const wxColour& fg = params->m_labelColour;
-        const int luminance = (77 * fg.Red() + 150 * fg.Green() + 29 * fg.Blue()) >> 8;
-        if ( luminance > 128 )
-            return DrawHeaderButtonContents(win, dc, rect, flags, sortArrow, params);
-    }
+    // Use generic rendering when the OS is in dark mode; HITheme ignores
+    // theme colours in that case (refs RM-73429).
     if ( wxSystemSettings::GetAppearance().IsDark() )
         return wxRendererNative::GetGeneric().DrawHeaderButton(win, dc, rect, flags, sortArrow, params);
 // end Bricsys change

@@ -1030,7 +1030,9 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                     const wxItemAttr& attr = m_customDraw->m_attr;
                     RECT rc = nmcd->rc;
 
-                    // Determine background colour with hover highlight.
+                    ::SaveDC(hdc);
+
+                    // Background: apply hover blend if this is the hot item.
                     // CDIS_HOT is not set when we return CDRF_SKIPDEFAULT,
                     // so we use our own m_hotItem tracker (refs RM-73429).
                     wxColour bgCol = attr.HasBackgroundColour()
@@ -1057,12 +1059,11 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                         bgCol.Set(r, g, b);
                     }
 
-                    // Fill background
                     HBRUSH hbr = ::CreateSolidBrush(wxColourToRGB(bgCol));
                     ::FillRect(hdc, &rc, hbr);
                     ::DeleteObject(hbr);
 
-                    // Draw separator on right edge, contrasting with bgCol
+                    // Separator: contrasting line on the right edge
                     {
                         const int lum = (77  * bgCol.Red() +
                                          150 * bgCol.Green() +
@@ -1075,25 +1076,21 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                                        wxMax(0, (int)bgCol.Green() - 40),
                                        wxMax(0, (int)bgCol.Blue()  - 40));
                         HPEN hpen = ::CreatePen(PS_SOLID, 1, wxColourToRGB(sepCol));
-                        HPEN hOldPen = (HPEN)::SelectObject(hdc, hpen);
+                        ::SelectObject(hdc, hpen);
                         ::MoveToEx(hdc, rc.right - 1, rc.top + 2, NULL);
                         ::LineTo(hdc, rc.right - 1, rc.bottom - 2);
-                        ::SelectObject(hdc, hOldPen);
                         ::DeleteObject(hpen);
                     }
 
-                    // Draw text
+                    // Text
                     wxColour fgCol = attr.HasTextColour()
                         ? attr.GetTextColour()
                         : GetForegroundColour();
                     ::SetTextColor(hdc, wxColourToRGB(fgCol));
                     ::SetBkMode(hdc, TRANSPARENT);
-
-                    HFONT oldFont = NULL;
                     if ( attr.HasFont() )
-                        oldFont = (HFONT)::SelectObject(hdc, GetHfontOf(attr.GetFont()));
+                        ::SelectObject(hdc, GetHfontOf(attr.GetFont()));
 
-                    // Get the column title text and format flags
                     int col = MSWFromNativeIdx((int)nmcd->dwItemSpec);
                     wxString text = m_header.GetColumn(col).GetTitle();
 
@@ -1101,55 +1098,16 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                     hdi.mask = HDI_FORMAT;
                     ::SendMessage(GetHwnd(), HDM_GETITEM, nmcd->dwItemSpec, (LPARAM)&hdi);
                     UINT dtFlags = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX;
-                    if ( hdi.fmt & HDF_CENTER )
-                        dtFlags |= DT_CENTER;
-                    else if ( hdi.fmt & HDF_RIGHT )
-                        dtFlags |= DT_RIGHT;
-                    else
-                        dtFlags |= DT_LEFT;
+                    if ( hdi.fmt & HDF_CENTER )      dtFlags |= DT_CENTER;
+                    else if ( hdi.fmt & HDF_RIGHT )  dtFlags |= DT_RIGHT;
+                    else                             dtFlags |= DT_LEFT;
 
-                    // Inset text rect; reserve extra space on the right for sort arrow
                     RECT rcText = rc;
                     rcText.left += 6;
                     rcText.right -= 6;
-                    const bool hasSortArrow = m_header.GetColumn(col).IsSortKey();
-                    if ( hasSortArrow )
-                        rcText.right -= 16;
-
                     ::DrawText(hdc, text.wc_str(), -1, &rcText, dtFlags);
 
-                    if ( oldFont )
-                        ::SelectObject(hdc, oldFont);
-
-                    // Draw sort arrow in the reserved 16px zone
-                    if ( hasSortArrow )
-                    {
-                        bool ascending = m_header.GetColumn(col).IsSortOrderAscending();
-                        int arrowX = rcText.right + 4;
-                        int arrowY = (rc.top + rc.bottom) / 2;
-                        POINT pts[3];
-                        if ( ascending )
-                        {
-                            pts[0] = { arrowX,     arrowY + 3 };
-                            pts[1] = { arrowX + 4, arrowY - 3 };
-                            pts[2] = { arrowX + 8, arrowY + 3 };
-                        }
-                        else
-                        {
-                            pts[0] = { arrowX,     arrowY - 3 };
-                            pts[1] = { arrowX + 4, arrowY + 3 };
-                            pts[2] = { arrowX + 8, arrowY - 3 };
-                        }
-                        HBRUSH arrowBr = ::CreateSolidBrush(wxColourToRGB(fgCol));
-                        HPEN arrowPen = ::CreatePen(PS_SOLID, 1, wxColourToRGB(fgCol));
-                        HBRUSH oldBr = (HBRUSH)::SelectObject(hdc, arrowBr);
-                        HPEN oldPen = (HPEN)::SelectObject(hdc, arrowPen);
-                        ::Polygon(hdc, pts, 3);
-                        ::SelectObject(hdc, oldBr);
-                        ::SelectObject(hdc, oldPen);
-                        ::DeleteObject(arrowBr);
-                        ::DeleteObject(arrowPen);
-                    }
+                    ::RestoreDC(hdc, -1);
 
                     *result = CDRF_SKIPDEFAULT;
                     return true;

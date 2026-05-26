@@ -587,27 +587,26 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
         params.m_labelBitmap = col.GetBitmapBundle().GetBitmapFor(this);
         params.m_labelAlignment = col.GetAlignment();
 
+#ifdef __WXGTK__
+        if (i == m_numColumns - 1 && xpos + colWidth >= w)
+            state |= wxCONTROL_DIRTY;
+#endif
+
         // start Bricsys change
+        // When custom colours are active (refs RM-73429): paint the background
+        // ourselves with a hover blend, then draw only text+arrow so the native
+        // renderer cannot overwrite the background.  Falls back to the normal
+        // DrawHeaderButton path when no custom colours have been set.
 #ifdef __UNIX__
         if ( m_hasCustomColours )
         {
-        params.m_labelColour = m_columnLabelTextColour;
+            params.m_labelColour = m_columnLabelTextColour;
 
-        // Draw per-item background so that hover (wxCONTROL_CURRENT) is
-        // visible when using custom colours.  We paint the background here
-        // and then call DrawHeaderButtonContents (text+arrow only) instead of
-        // DrawHeaderButton, so the native renderer never overwrites our hover
-        // highlight (refs RM-73429).
-        //
-        // Native renderers on Unix (GTK, macOS) may ignore wxCONTROL_CURRENT
-        // or repaint the background, erasing our custom hover highlight.
-        {
             wxColour bgColor = m_columnLabelBackgroundColour;
             if ( state & wxCONTROL_CURRENT )
             {
-                // Bidirectional blend: darken light backgrounds, lighten dark
-                // ones, so the hover highlight is visible in both themes.
-                const int lum = (77 * bgColor.Red() +
+                // Bidirectional blend: darken light bg, lighten dark bg.
+                const int lum = (77  * bgColor.Red()   +
                                  150 * bgColor.Green() +
                                  29  * bgColor.Blue()) >> 8;
                 if ( lum > 128 )
@@ -623,52 +622,17 @@ void wxHeaderCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
             dc.SetBrush(wxBrush(bgColor));
             dc.SetPen(*wxTRANSPARENT_PEN);
             dc.DrawRectangle(wxRect(xpos, 0, colWidth, h));
-        }
-        } // m_hasCustomColours
-#endif
-        // end Bricsys change
 
-#ifdef __WXGTK__
-        if (i == m_numColumns - 1 && xpos + colWidth >= w)
-        {
-            state |= wxCONTROL_DIRTY;
-        }
-#endif
-
-        // start Bricsys change
-#ifdef __UNIX__
-        if ( m_hasCustomColours )
-        {
-        // Background already painted above; draw only text/arrow so native
-        // renderers do not repaint the background and erase the hover colour.
-        wxRendererNative::Get().DrawHeaderButtonContents
-                                (
-                                    this,
-                                    dc,
-                                    wxRect(xpos, 0, colWidth, h),
-                                    state,
-                                    sortArrow,
-                                    &params
-                                );
+            wxRendererNative::Get().DrawHeaderButtonContents(
+                this, dc, wxRect(xpos, 0, colWidth, h), state, sortArrow, &params);
         }
         else
+#endif // __UNIX__
+        // end Bricsys change
         {
-#endif
-        // end Bricsys change
-        wxRendererNative::Get().DrawHeaderButton
-                                (
-                                    this,
-                                    dc,
-                                    wxRect(xpos, 0, colWidth, h),
-                                    state,
-                                    sortArrow,
-                                    &params
-                                );
-        // start Bricsys change
-#ifdef __UNIX__
-        } // m_hasCustomColours
-#endif
-        // end Bricsys change
+            wxRendererNative::Get().DrawHeaderButton(
+                this, dc, wxRect(xpos, 0, colWidth, h), state, sortArrow, &params);
+        }
 
         xpos += colWidth;
         if ( xpos > w )

@@ -1091,7 +1091,20 @@ bool wxMSWHeaderCtrl::MSWOnNotify(int idCtrl, WXLPARAM lParam, WXLPARAM *result)
                     if ( attr.HasFont() )
                         ::SelectObject(hdc, GetHfontOf(attr.GetFont()));
 
-                    int col = MSWFromNativeIdx((int)nmcd->dwItemSpec);
+                    const int nativeIdx = (int)nmcd->dwItemSpec;
+                    if ( nativeIdx < 0 || nativeIdx >= GetShownColumnsCount() )
+                    {
+                        ::RestoreDC(hdc, -1);
+                        ::DeleteObject(hpen);
+                        break;
+                    }
+                    int col = MSWFromNativeIdx(nativeIdx);
+                    if ( col < 0 || (unsigned)col >= m_header.GetColumnCount() )
+                    {
+                        ::RestoreDC(hdc, -1);
+                        ::DeleteObject(hpen);
+                        break;
+                    }
                     wxString text = m_header.GetColumn(col).GetTitle();
 
                     HDITEM hdi = {};

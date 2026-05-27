@@ -165,9 +165,6 @@ def main():
             cmake_bin = os.path.join(thirdparty_path, 'cmake', 'lin64', 'bin')
         ENV['PATH'] = cmake_bin + os.pathsep + ENV.get('PATH', '')
 
-    if Action.CHECKOUT in ACTION or Action.GENERATE in ACTION:
-        initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)
-
     # Determine parallelism level
     if args.jobs is not None:
         jobs = args.jobs
@@ -223,63 +220,62 @@ def main():
             cmd += args.cmake_config_args
         return cmd
 
-    # On Windows (multi-config generator), we only need one build directory
-    # but build+install multiple configurations from it.
-    if PLATFORM == 'windows':
-        BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
-        _, INSTALL_DIR_DEBUG, _ = get_dirs('Debug')
-
-        BUILD_DIR.mkdir(parents=True, exist_ok=True)
-
+    def print_config(build_types_info):
         print(f"==============================================")
         print(f"Running script with the following config:")
         print(f"ACTION: {args.action}")
         print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
         print(f"PLATFORM: {PLATFORM}")
-        print(f"BUILD TYPES: {build_types}")
         print(f"WX REPO URL: {WXGIT_REPO_URL}")
         print(f"SRC DIR: {SRC_DIR}")
-        print(f"BUILD DIR: {BUILD_DIR}")
-        print(f"INSTALL DIR (RelWithDebInfo): {INSTALL_DIR}")
-        print(f"INSTALL DIR (Debug): {INSTALL_DIR_DEBUG}")
+        for label, build_dir, install_dir in build_types_info:
+            print(f"BUILD TYPE: {label}")
+            print(f"  BUILD DIR:   {build_dir}")
+            print(f"  INSTALL DIR: {install_dir}")
         print(f"==============================================", flush=True)
 
-        if Action.GENERATE in ACTION:
-            run_command(make_configure_command(INSTALL_DIR), cwd=CWD, env=ENV)
-
-        if Action.BUILD in ACTION:
-            for bt in build_types:
-                run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
-                if bt == 'Debug':
-                    run_command(f'cmake --install {BUILD_DIR} --config {bt} --prefix "{INSTALL_DIR_DEBUG}"', cwd=CWD, env=ENV)
-                else:
-                    run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
-
-    else:
-        # Linux/Mac: single-config generators need separate build directories per config
-        for bt in build_types:
-            BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
-
+    def do_generate():
+        if PLATFORM == 'windows':
+            BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
             BUILD_DIR.mkdir(parents=True, exist_ok=True)
-
-            print(f"==============================================")
-            print(f"Running script with the following config:")
-            print(f"ACTION: {args.action}")
-            print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
-            print(f"PLATFORM: {PLATFORM}")
-            print(f"BUILD TYPE: {bt}")
-            print(f"WX REPO URL: {WXGIT_REPO_URL}")
-            print(f"SRC DIR: {SRC_DIR}")
-            print(f"BUILD DIR: {BUILD_DIR}")
-            print(f"INSTALL DIR: {INSTALL_DIR}")
-            print(f"==============================================", flush=True)
-
-            if Action.GENERATE in ACTION:
+            run_command(make_configure_command(INSTALL_DIR), cwd=CWD, env=ENV)
+        else:
+            for bt in build_types:
+                BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
+                BUILD_DIR.mkdir(parents=True, exist_ok=True)
                 run_command(make_configure_command(INSTALL_DIR, bt), cwd=CWD, env=ENV)
 
-            if Action.BUILD in ACTION:
+    def do_build():
+        if PLATFORM == 'windows':
+            BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
+            _, INSTALL_DIR_DEBUG, _ = get_dirs('Debug')
+            for bt in build_types:
+                run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
+                prefix = f'--prefix "{INSTALL_DIR_DEBUG}"' if bt == 'Debug' else ''
+                run_command(f'cmake --install {BUILD_DIR} --config {bt} {prefix}', cwd=CWD, env=ENV)
+        else:
+            for bt in build_types:
+                BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
                 run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
                 run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
+
+    # Compute dirs for the summary printout
+    if PLATFORM == 'windows':
+        _rd, _ri, _ = get_dirs(RELEASE_BUILD_TYPE)
+        _dd, _di, _ = get_dirs('Debug')
+        build_types_info = [(bt, _rd, _di if bt == 'Debug' else _ri) for bt in build_types]
+    else:
+        build_types_info = [(bt, *get_dirs(bt)[:2]) for bt in build_types]
+    print_config(build_types_info)
+
+    if Action.CHECKOUT in ACTION or Action.GENERATE in ACTION:
+        initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)
+
+    if Action.GENERATE in ACTION:
+        do_generate()
+
+    if Action.BUILD in ACTION:
+        do_build()
 
 if __name__ == '__main__':
     start = time.time()

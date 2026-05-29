@@ -423,5 +423,5 @@
 
 /3rdparty/webview2
 
-/build_bsys
-/install_bsys
+/build_bsys*
+/install_bsys*

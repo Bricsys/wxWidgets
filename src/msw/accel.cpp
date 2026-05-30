@@ -92,13 +92,12 @@ struct KbdLayoutLoader
             return; // En layout already active
 
         m_hasEnLayout = false;
-
-        const int layoutCnt = ::GetKeyboardLayoutList(0, NULL);
-        if (layoutCnt)
+        int numLayouts = ::GetKeyboardLayoutList(0, NULL);
+        if (numLayouts)
         {
-            std::vector<HKL> layouts(layoutCnt);
-            ::GetKeyboardLayoutList(layoutCnt, layouts.data());
-            for (short i = 0; i < layoutCnt; i++)
+            std::vector<HKL> layouts(numLayouts);
+            ::GetKeyboardLayoutList(numLayouts, layouts.data());
+            for (int i = 0; i < numLayouts; i++)
             {
                 if (LOWORD(layouts[i]) == EN_US_LANGID)
                 {
@@ -108,9 +107,12 @@ struct KbdLayoutLoader
             }
         }
         // activate En layout
-        m_hklEn = ::LoadKeyboardLayout(L"00000409", KLF_ACTIVATE | KLF_NOTELLSHELL);
+        m_hklEn = ::LoadKeyboardLayout(L"00000409", KLF_NOTELLSHELL);
         if (m_hklEn)
-            m_hklOld = ::ActivateKeyboardLayout(m_hklEn, 0);
+        {
+            m_hklOld = hklCur;
+            ::ActivateKeyboardLayout(m_hklEn, 0);
+        }
     }
 
     ~KbdLayoutLoader()

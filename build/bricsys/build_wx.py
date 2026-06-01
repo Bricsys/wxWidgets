@@ -81,7 +81,7 @@ def main():
     SRC_DIR = Path(args.wx_src_dir).resolve()
 
     # Determine which build types to process
-    # On Windows (multi-config): single build_bsys dir, install RelWithDebInfo -> install_bsys, Debug -> install_bsys_debug
+    # On Windows (multi-config): single build_bsys dir, both Debug and RelWithDebInfo install to install_bsys
     # On Linux/Mac (single-config): build_bsys for Release, build_bsys_debug for Debug
     if PLATFORM == 'windows':
         # Windows: RelWithDebInfo is the "release" config
@@ -105,21 +105,23 @@ def main():
     # Compute build/install directories for each build type
     def get_dirs(build_type):
         """Return (build_dir, install_dir, cwd) for a given build type."""
-        if build_type == 'Debug':
+        # On Windows (multi-config), Debug and Release share a single build dir and install dir.
+        # On Linux/Mac (single-config), Debug gets a separate _debug suffixed dir.
+        if build_type == 'Debug' and PLATFORM != 'windows':
             dir_suffix = '_debug'
         else:
             dir_suffix = ''
 
         if args.wx_build_dir is not None:
-            # User-specified build dir: append suffix for debug
-            build_dir_str = args.wx_build_dir + (dir_suffix if build_type == 'Debug' else '')
+            # User-specified build dir: append suffix for debug (non-Windows only)
+            build_dir_str = args.wx_build_dir + (dir_suffix if build_type == 'Debug' and PLATFORM != 'windows' else '')
         else:
             build_dir_str = args.wx_src_dir + f'/build_bsys{dir_suffix}/'
 
         cwd = build_dir_str
 
         if args.wx_install_dir is not None:
-            install_dir_str = args.wx_install_dir + (dir_suffix if build_type == 'Debug' else '')
+            install_dir_str = args.wx_install_dir + (dir_suffix if build_type == 'Debug' and PLATFORM != 'windows' else '')
         else:
             if PLATFORM == 'linux':
                 install_dir_str = f'{cwd}/install_bsys{dir_suffix}'
@@ -248,11 +250,9 @@ def main():
     def do_build():
         if PLATFORM == 'windows':
             BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
-            _, INSTALL_DIR_DEBUG, _ = get_dirs('Debug')
             for bt in build_types:
                 run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
-                prefix = f'--prefix "{INSTALL_DIR_DEBUG}"' if bt == 'Debug' else ''
-                run_command(f'cmake --install {BUILD_DIR} --config {bt} {prefix}', cwd=CWD, env=ENV)
+                run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
         else:
             for bt in build_types:
                 BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
@@ -262,8 +262,7 @@ def main():
     # Compute dirs for the summary printout
     if PLATFORM == 'windows':
         _rd, _ri, _ = get_dirs(RELEASE_BUILD_TYPE)
-        _dd, _di, _ = get_dirs('Debug')
-        build_types_info = [(bt, _rd, _di if bt == 'Debug' else _ri) for bt in build_types]
+        build_types_info = [(bt, _rd, _ri) for bt in build_types]
     else:
         build_types_info = [(bt, *get_dirs(bt)[:2]) for bt in build_types]
     print_config(build_types_info)

@@ -103,7 +103,7 @@ def main():
         sys.exit(1)
 
     # Compute build/install directories for each build type
-    def get_dirs(build_type):
+    def get_build_dirs(build_type):
         """Return (build_dir, install_dir, cwd) for a given build type."""
         # On Windows (multi-config), Debug and Release share a single build dir and install dir.
         # On Linux/Mac (single-config), Debug gets a separate _debug suffixed dir.
@@ -236,35 +236,34 @@ def main():
             print(f"  INSTALL DIR: {install_dir}")
         print(f"==============================================", flush=True)
 
-    def do_generate():
+    def iter_build_configs():
+        """Yield (build_type, BUILD_DIR, INSTALL_DIR, CWD) for each build configuration.
+        On Windows (multi-config), all build types share the same dirs.
+        On Linux/Mac (single-config), each build type gets its own dirs."""
         if PLATFORM == 'windows':
-            BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
-            BUILD_DIR.mkdir(parents=True, exist_ok=True)
-            run_command(make_configure_command(INSTALL_DIR), cwd=CWD, env=ENV)
+            BUILD_DIR, INSTALL_DIR, CWD = get_build_dirs(RELEASE_BUILD_TYPE)
+            for bt in build_types:
+                yield bt, BUILD_DIR, INSTALL_DIR, CWD
         else:
             for bt in build_types:
-                BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
-                BUILD_DIR.mkdir(parents=True, exist_ok=True)
-                run_command(make_configure_command(INSTALL_DIR, bt), cwd=CWD, env=ENV)
+                yield bt, *get_build_dirs(bt)
+
+    def do_generate():
+        seen_build_dirs = set()
+        for bt, BUILD_DIR, INSTALL_DIR, CWD in iter_build_configs():
+            if BUILD_DIR in seen_build_dirs:
+                continue
+            seen_build_dirs.add(BUILD_DIR)
+            BUILD_DIR.mkdir(parents=True, exist_ok=True)
+            run_command(make_configure_command(INSTALL_DIR, bt), cwd=CWD, env=ENV)
 
     def do_build():
-        if PLATFORM == 'windows':
-            BUILD_DIR, INSTALL_DIR, CWD = get_dirs(RELEASE_BUILD_TYPE)
-            for bt in build_types:
-                run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
-                run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
-        else:
-            for bt in build_types:
-                BUILD_DIR, INSTALL_DIR, CWD = get_dirs(bt)
-                run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
-                run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
+        for bt, BUILD_DIR, INSTALL_DIR, CWD in iter_build_configs():
+            run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
+            run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
 
     # Compute dirs for the summary printout
-    if PLATFORM == 'windows':
-        _rd, _ri, _ = get_dirs(RELEASE_BUILD_TYPE)
-        build_types_info = [(bt, _rd, _ri) for bt in build_types]
-    else:
-        build_types_info = [(bt, *get_dirs(bt)[:2]) for bt in build_types]
+    build_types_info = [(bt, build_dir, install_dir) for bt, build_dir, install_dir, _ in iter_build_configs()]
     print_config(build_types_info)
 
     if Action.CHECKOUT in ACTION or Action.GENERATE in ACTION:

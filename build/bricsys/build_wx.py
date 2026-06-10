@@ -53,7 +53,7 @@ def main():
     parser.add_argument('--platform', required='True', help='Platform: windows, linux, mac')
     parser.add_argument('--cmake_generator', help='The CMake Generator to use')
     parser.add_argument('--cmake_config_args', help='Extra cmake configure arguments')
-    parser.add_argument('--build_type', default='debug', help='Build type: release, debug, release_debug')
+    parser.add_argument('--build_type', default='all', help='Build type: all, release, debug, release_debug')
     parser.add_argument('--wx_src_dir', default='../../', help='Wx source directory (default: qt/src)')
     parser.add_argument('--wx_build_dir', help='Wx build directory (default: $wx_src_dir/build_bsys)')
     parser.add_argument('--wx_install_dir', help='Wx install directory (default: ../)')
@@ -69,42 +69,69 @@ def main():
         else:
             args.cmake_generator = f'"Unix Makefiles"'
 
-    if args.wx_build_dir is None:
-        args.wx_build_dir = args.wx_src_dir + f'/build_bsys/'
-
-    CWD = args.wx_build_dir
-
-    if args.wx_install_dir is None:
-        if args.platform == 'linux':
-            args.wx_install_dir = f'{CWD}/install_bsys'
-        elif args.platform == 'windows':
-            args.wx_install_dir = '../../install_bsys'
-
     # Configurable Constants
     WXGIT_REPO_URL = 'git@github.com:Bricsys/wxWidgets.git'
     PLATFORM = args.platform # windows, linux, mac
     SUBMODULES = {'3rdparty/nanosvg', '3rdparty/pcre', 'src/jpeg', 'src/png', 'src/zlib', 'src/expat', 'src/tiff' }
     SKIP_MODULES = ''
-    CMAKE_GENERATOR =  args.cmake_generator # Adjust based on your platform and compiler
-
-    # Build type
-    if args.build_type == "debug":
-        BUILD_TYPE = 'Debug'
-    elif args.build_type == "release":
-        BUILD_TYPE = 'Release'
-    elif args.build_type == "release_debug":
-        BUILD_TYPE = 'RelWithDebInfo'
-    else:
-        print(f"Unknown build type: {args.build_type}")
-        sys.exit(1)
-
+    CMAKE_GENERATOR = args.cmake_generator # Adjust based on your platform and compiler
     CMAKE_SOURCE_PATH = 'cmake'
 
     # Paths
     SRC_DIR = Path(args.wx_src_dir).resolve()
-    BUILD_DIR = Path(args.wx_build_dir).resolve()
-    install_dir = Path(args.wx_install_dir)
-    INSTALL_DIR = install_dir if install_dir.is_absolute() else (SRC_DIR / install_dir).resolve()
+
+    # Determine which build types to process
+    # On Windows (multi-config): single build_bsys dir, both Debug and RelWithDebInfo install to install_bsys
+    # On Linux/Mac (single-config): build_bsys for Release, build_bsys_debug for Debug
+    if PLATFORM == 'windows':
+        # Windows: RelWithDebInfo is the "release" config
+        RELEASE_BUILD_TYPE = 'RelWithDebInfo'
+    else:
+        # Linux/Mac: Release is the "release" config
+        RELEASE_BUILD_TYPE = 'Release'
+
+    if args.build_type == 'all':
+        build_types = [RELEASE_BUILD_TYPE, 'Debug']
+    elif args.build_type == 'debug':
+        build_types = ['Debug']
+    elif args.build_type == 'release':
+        build_types = [RELEASE_BUILD_TYPE]
+    elif args.build_type == 'release_debug':
+        build_types = ['RelWithDebInfo']
+    else:
+        print(f"Unknown build type: {args.build_type}")
+        sys.exit(1)
+
+    # Compute build/install directories for each build type
+    def get_build_dirs(build_type):
+        """Return (build_dir, install_dir, cwd) for a given build type."""
+        # On Windows (multi-config), Debug and Release share a single build dir and install dir.
+        # On Linux/Mac (single-config), Debug gets a separate _debug suffixed dir.
+        if build_type == 'Debug' and PLATFORM != 'windows':
+            dir_suffix = '_debug'
+        else:
+            dir_suffix = ''
+
+        if args.wx_build_dir is not None:
+            # User-specified build dir: append suffix for debug (non-Windows only)
+            build_dir_str = args.wx_build_dir + dir_suffix
+        else:
+            build_dir_str = args.wx_src_dir + f'/build_bsys{dir_suffix}/'
+
+        cwd = build_dir_str
+
+        if args.wx_install_dir is not None:
+            install_dir_str = args.wx_install_dir + dir_suffix
+        else:
+            if PLATFORM == 'linux':
+                install_dir_str = f'{cwd}/install_bsys{dir_suffix}'
+            else:
+                install_dir_str = f'../../install_bsys{dir_suffix}'
+
+        build_dir = Path(build_dir_str).resolve()
+        install_path = Path(install_dir_str)
+        install_dir = install_path if install_path.is_absolute() else (SRC_DIR / install_path).resolve()
+        return build_dir, install_dir, cwd
 
     # Parse actions
     action_str = args.action.lower()
@@ -126,19 +153,6 @@ def main():
                 print(f"Unknown action: {act}")
                 sys.exit(1)
 
-    print(f"==============================================")
-    print(f"Running script with the following config:")
-    #print(f"WX VERSION: {WX_VERSION}")
-    print(f"ACTION: {args.action}")
-    print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
-    print(f"PLATFORM: {PLATFORM}")
-    print(f"BUILD TYPE: {BUILD_TYPE}")
-    print(f"WX REPO URL: {WXGIT_REPO_URL}")
-    print(f"SRC DIR: {SRC_DIR}")
-    print(f"BUILD DIR: {BUILD_DIR}")
-    print(f"INSTALL DIR: {INSTALL_DIR}")
-    print(f"==============================================", flush=True)
-
     # Prepare environment variables for subprocesses
     ENV = os.environ.copy()
 
@@ -153,67 +167,113 @@ def main():
             cmake_bin = os.path.join(thirdparty_path, 'cmake', 'lin64', 'bin')
         ENV['PATH'] = cmake_bin + os.pathsep + ENV.get('PATH', '')
 
-    # Create directories
-    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    # Determine parallelism level
+    if args.jobs is not None:
+        jobs = args.jobs
+    elif 'CMAKE_BUILD_PARALLEL_LEVEL' in os.environ:
+        jobs = int(os.environ['CMAKE_BUILD_PARALLEL_LEVEL'])
+    else:
+        jobs = 12
 
-    # Configure the build
-    configure_command = (
-        f'{CMAKE_SOURCE_PATH} '
-        f'-G {CMAKE_GENERATOR} '
-        f'--install-prefix="{INSTALL_DIR}" '
-        f'"{SRC_DIR}" '
-        f'-C "{SRC_DIR}/build/bricsys/toolchain.cmake" '
-        f'-DCMAKE_BUILD_TYPE={BUILD_TYPE} '
-        f'-DwxBUILD_SHARED=ON '
-        f'-DwxUSE_STL=ON '
-        f'-DwxUSE_XRC=ON '
-        f'-DwxUSE_AUI=ON '
-        f'-DwxUSE_STC=ON '
-        f'-DwxUSE_REGEX=builtin '
-        f'-DwxUSE_LIBPNG=builtin '
-        f'-DwxUSE_LIBJPEG=builtin '
-        f'-DwxUSE_GLCANVAS_EGL=OFF '
-        f'-DwxUSE_WEBVIEW=OFF '
-        f'-DwxUSE_RIBBON=OFF '
-        f'-DwxUSE_LIBSDL=OFF '
-        f'-DwxUSE_WEBREQUEST_CURL=OFF '
-        f'-DwxUSE_WEBREQUEST=OFF '
-        f'-DwxUSE_LIBNOTIFY=OFF '
-        f'-DwxUSE_MEDIACTRL=OFF '
-        f'-DwxBUILD_SAMPLES=OFF '
-        f'-DwxBUILD_TESTS=OFF '
-        f'-DwxBUILD_INSTALL=ON '
-    )
-    if PLATFORM == 'windows':
-        configure_command += f'-DCMAKE_GENERATOR_PLATFORM=x64 '
-        configure_command += f'-DwxUSE_LIBTIFF=builtin '
-        configure_command += f'-DCMAKE_CONFIGURATION_TYPES="Debug;RelWithDebInfo" '
-    elif PLATFORM == 'mac':
-        configure_command += f'-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" '
-        configure_command += f'-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 '
-        configure_command += f'-DCMAKE_MACOSX_RPATH=OFF '
-        configure_command += f'-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=TRUE '
-        configure_command += f'-DCMAKE_INSTALL_NAME_DIR="@executable_path" '
-    elif PLATFORM == 'linux':
-         configure_command += f'-DCMAKE_INSTALL_LIBDIR=lib '
-    if args.cmake_config_args is not None:
-        configure_command += args.cmake_config_args
+    def make_configure_command(install_dir, build_type=None):
+        """Build the cmake configure command. build_type is used for single-config generators."""
+        cmd = (
+            f'{CMAKE_SOURCE_PATH} '
+            f'-G {CMAKE_GENERATOR} '
+            f'--install-prefix="{install_dir}" '
+            f'"{SRC_DIR}" '
+            f'-C "{SRC_DIR}/build/bricsys/toolchain.cmake" '
+            f'-DwxBUILD_SHARED=ON '
+            f'-DwxUSE_STL=ON '
+            f'-DwxUSE_XRC=ON '
+            f'-DwxUSE_AUI=ON '
+            f'-DwxUSE_STC=ON '
+            f'-DwxUSE_REGEX=builtin '
+            f'-DwxUSE_LIBPNG=builtin '
+            f'-DwxUSE_LIBJPEG=builtin '
+            f'-DwxUSE_GLCANVAS_EGL=OFF '
+            f'-DwxUSE_WEBVIEW=OFF '
+            f'-DwxUSE_RIBBON=OFF '
+            f'-DwxUSE_LIBSDL=OFF '
+            f'-DwxUSE_WEBREQUEST_CURL=OFF '
+            f'-DwxUSE_WEBREQUEST=OFF '
+            f'-DwxUSE_LIBNOTIFY=OFF '
+            f'-DwxUSE_MEDIACTRL=OFF '
+            f'-DwxBUILD_SAMPLES=OFF '
+            f'-DwxBUILD_TESTS=OFF '
+            f'-DwxBUILD_INSTALL=ON '
+        )
+        if PLATFORM == 'windows':
+            cmd += f'-DCMAKE_GENERATOR_PLATFORM=x64 '
+            cmd += f'-DwxUSE_LIBTIFF=builtin '
+            cmd += f'-DCMAKE_CONFIGURATION_TYPES="Debug;RelWithDebInfo" '
+        elif PLATFORM == 'mac':
+            cmd += f'-DCMAKE_BUILD_TYPE={build_type} '
+            cmd += f'-DCMAKE_INSTALL_LIBDIR=lib '
+            cmd += f'-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" '
+            cmd += f'-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 '
+            cmd += f'-DCMAKE_MACOSX_RPATH=OFF '
+            cmd += f'-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=TRUE '
+            cmd += f'-DCMAKE_INSTALL_NAME_DIR="@executable_path" '
+        elif PLATFORM == 'linux':
+            cmd += f'-DCMAKE_BUILD_TYPE={build_type} '
+            cmd += f'-DCMAKE_INSTALL_LIBDIR=lib '
+        if args.cmake_config_args is not None:
+            cmd += args.cmake_config_args
+        return cmd
+
+    def print_config(build_types_info):
+        print(f"==============================================")
+        print(f"Running script with the following config:")
+        print(f"ACTION: {args.action}")
+        print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
+        print(f"PLATFORM: {PLATFORM}")
+        print(f"WX REPO URL: {WXGIT_REPO_URL}")
+        print(f"SRC DIR: {SRC_DIR}")
+        for label, build_dir, install_dir in build_types_info:
+            print(f"BUILD TYPE: {label}")
+            print(f"  BUILD DIR:   {build_dir}")
+            print(f"  INSTALL DIR: {install_dir}")
+        print(f"==============================================", flush=True)
+
+    def iter_build_configs():
+        """Yield (build_type, BUILD_DIR, INSTALL_DIR, CWD) for each build configuration.
+        On Windows (multi-config), all build types share the same dirs.
+        On Linux/Mac (single-config), each build type gets its own dirs."""
+        if PLATFORM == 'windows':
+            BUILD_DIR, INSTALL_DIR, CWD = get_build_dirs(RELEASE_BUILD_TYPE)
+            for bt in build_types:
+                yield bt, BUILD_DIR, INSTALL_DIR, CWD
+        else:
+            for bt in build_types:
+                yield bt, *get_build_dirs(bt)
+
+    def do_generate():
+        seen_build_dirs = set()
+        for bt, BUILD_DIR, INSTALL_DIR, CWD in iter_build_configs():
+            if BUILD_DIR in seen_build_dirs:
+                continue
+            seen_build_dirs.add(BUILD_DIR)
+            BUILD_DIR.mkdir(parents=True, exist_ok=True)
+            run_command(make_configure_command(INSTALL_DIR, bt), cwd=CWD, env=ENV)
+
+    def do_build():
+        for bt, BUILD_DIR, INSTALL_DIR, CWD in iter_build_configs():
+            run_command(f'cmake --build {BUILD_DIR} --config {bt} --parallel {jobs}', cwd=CWD, env=ENV)
+            run_command(f'cmake --install {BUILD_DIR} --config {bt}', cwd=CWD, env=ENV)
+
+    # Compute dirs for the summary printout
+    build_types_info = [(bt, build_dir, install_dir) for bt, build_dir, install_dir, _ in iter_build_configs()]
+    print_config(build_types_info)
 
     if Action.CHECKOUT in ACTION or Action.GENERATE in ACTION:
         initialize_and_update_submodules(SUBMODULES, SRC_DIR, ENV)
 
     if Action.GENERATE in ACTION:
-        run_command(configure_command, cwd=CWD, env=ENV)
+        do_generate()
 
     if Action.BUILD in ACTION:
-        if args.jobs is not None:
-            jobs = args.jobs
-        elif 'CMAKE_BUILD_PARALLEL_LEVEL' in os.environ:
-            jobs = int(os.environ['CMAKE_BUILD_PARALLEL_LEVEL'])
-        else:
-            jobs = 12
-        run_command(f'cmake --build {BUILD_DIR} --config {BUILD_TYPE} --parallel {jobs}', cwd=CWD, env=ENV)
-        run_command(f'cmake --install {BUILD_DIR} --config {BUILD_TYPE}', cwd=CWD, env=ENV)
+        do_build()
 
 if __name__ == '__main__':
     start = time.time()

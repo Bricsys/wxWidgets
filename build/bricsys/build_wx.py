@@ -114,14 +114,14 @@ def main():
 
         if args.wx_build_dir is not None:
             # User-specified build dir: append suffix for debug (non-Windows only)
-            build_dir_str = args.wx_build_dir + (dir_suffix if build_type == 'Debug' and PLATFORM != 'windows' else '')
+            build_dir_str = args.wx_build_dir + dir_suffix
         else:
             build_dir_str = args.wx_src_dir + f'/build_bsys{dir_suffix}/'
 
         cwd = build_dir_str
 
         if args.wx_install_dir is not None:
-            install_dir_str = args.wx_install_dir + (dir_suffix if build_type == 'Debug' and PLATFORM != 'windows' else '')
+            install_dir_str = args.wx_install_dir + dir_suffix
         else:
             if PLATFORM == 'linux':
                 install_dir_str = f'{cwd}/install_bsys{dir_suffix}'

@@ -1932,7 +1932,13 @@ BOOL wxOSX_performKeyEquivalent(NSView* self, SEL _cmd, NSEvent *event)
             }
         }
         
-        // 2. if the event hasn't been handled, walk up the window hierarchy, but do only accelerators this way, not KEY_DOWN events
+        // 2. then, if no accelerator was found, try sending a KEY_DOWN event to the focused window
+        if( !handled )
+        {
+            handled = impl->GetWXPeer()->HandleWindowEvent(wxevent);
+        }
+
+        // 3. if the event hasn't been handled, walk up the window hierarchy, but do only accelerators this way, not KEY_DOWN events
         if( !handled )
         {
             wxDialog* dialog = wxDynamicCast(impl->GetWXPeer(), wxDialog);

@@ -50,6 +50,7 @@
 #include "wx/trackpadstate.h"
 #include "wx/osx/cocoa/trackerInput.h"
 #include "wx/osx/cocoa/trackerTouchDouble.h"
+#include "wx/dialog.h"
 #include "wx/string.h"
 #include "wx/osx/cocoa/touchPadGesturesDelegate.h"
 #include "wx/minifram.h"
@@ -1892,6 +1893,72 @@ void wxOSX_touchesEnded(NSView* self, SEL WXUNUSED(_cmd), NSEvent *event)
     impl->TouchesEnded(event);
 }
 
+// This function was removed in the upstream commit
+// https://github.com/wxWidgets/wxWidgets/commit/87bba02fef2896104a983509b1d480ebf442c7b6
+// To check if our customizations are properly added
+// Bricsys change: rework how accelerators are handled on Mac
+// 1. first, try the accelerators table and button events of the focused window
+// 2. then, if no accelerator was found, try sending a KEY_DOWN event to the focused window
+// 3. if the event hasn't been handled, walk up the window hierarchy, but do only accelerators this way, not KEY_DOWN events
+BOOL wxOSX_performKeyEquivalent(NSView* self, SEL _cmd, NSEvent *event)
+{
+    NSView* focusView = GetFocusedViewInWindow([self window]);
+    if(focusView)
+    {
+        bool handled = false;
+        
+        wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( focusView );
+        if (impl == NULL)
+            return NO;
+        
+        wxKeyEvent wxevent(wxEVT_KEY_DOWN);
+        impl->SetupKeyEvent( wxevent, event );
+        
+        // 1. first, try the accelerators table of the focus window and button events
+        int command = impl->GetWXPeer()->GetAcceleratorTable()->GetCommand( wxevent );
+        if(command != -1)
+        {
+            wxCommandEvent command_event( wxEVT_MENU, command );
+            command_event.SetEventObject( wxevent.GetEventObject() );
+            handled = impl->GetWXPeer()->HandleWindowEvent( command_event );
+            
+            if ( !handled )
+            {
+                // if the accelerator wasn't handled as menu event, try
+                // it as button click (for compatibility with other
+                // platforms):
+                wxCommandEvent button_event( wxEVT_BUTTON, command );
+                handled = impl->GetWXPeer()->HandleWindowEvent( button_event );
+            }
+        }
+        
+        // 2. if the event hasn't been handled, walk up the window hierarchy, but do only accelerators this way, not KEY_DOWN events
+        if( !handled )
+        {
+            wxDialog* dialog = wxDynamicCast(impl->GetWXPeer(), wxDialog);
+            if( dialog && dialog->IsModal())
+                return NO;
+            wxWindowMac* parent = impl->GetWXPeer()->GetParent();
+            if(!parent)
+                return NO;
+            wxWidgetCocoaImpl* parentImpl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( parent->GetHandle() );
+            if(!parentImpl)
+                return NO;
+            
+            return parentImpl->performKeyEquivalent(event, NULL, _cmd);
+        }
+    }
+    else
+    {
+        wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+        if (impl == NULL)
+            return NO;
+        
+        return impl->performKeyEquivalent(event, self, _cmd);
+    }
+    return YES;
+}
+
 BOOL wxOSX_acceptsFirstResponder(NSView* self, SEL _cmd)
 {
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
@@ -3149,6 +3216,68 @@ bool wxWidgetCocoaImpl::doCommandBySelector(void* sel, WXWidget slf, void* WXUNU
     return handled;
 }
 
+// Bricsys change: rework how accelerators are handled on Mac
+// see also wxOSX_performKeyEquivalent()
+bool wxWidgetCocoaImpl::performKeyEquivalent(WX_NSEvent event, WXWidget slf, void *_cmd)
+{
+    bool handled = false;
+    
+    wxKeyEvent wxevent(wxEVT_KEY_DOWN);
+    SetupKeyEvent( wxevent, event );
+   
+    // because performKeyEquivalent is going up the entire view hierarchy, we don't have to
+    // walk up the ancestors ourselves but let cocoa do it
+#if wxUSE_ACCEL
+    int command = m_wxPeer->GetAcceleratorTable()->GetCommand( wxevent );
+    if (command != -1)
+    {
+        wxEvtHandler * const handler = m_wxPeer->GetEventHandler();
+        
+        wxCommandEvent command_event( wxEVT_MENU, command );
+        command_event.SetEventObject( wxevent.GetEventObject() );
+        handled = handler->ProcessEvent( command_event );
+        
+        if ( !handled )
+        {
+            // accelerators can also be used with buttons, try them too
+            command_event.SetEventType(wxEVT_BUTTON);
+            handled = handler->ProcessEvent( command_event );
+        }
+    }
+#endif // wxUSE_ACCEL
+
+    if ( !handled )
+    {
+        // if slf == NULL, we encode the case where we want to go up the window hierarchy
+        // otherwise, employ the default Cocoa mechanism
+        if(slf == NULL)
+        {
+            // Bricsys added: when pressing Enter in a toplevel window, we need to press the default item (OK button usually)
+            if(checkDefaultItem(GetWXPeer(), event))
+                return YES;
+            
+            //stop going up in the window hierarchy only if the top window it is a modal dialog
+            wxDialog* dialog = wxDynamicCast(GetWXPeer(), wxDialog);
+            if( dialog && dialog->IsModal())
+                return NO;
+            wxWindowMac* parent = GetWXPeer()->GetParent();
+            if(!parent)
+                return NO;
+            wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( parent->GetHandle() );
+            if(!impl)
+                return NO;
+            return impl->performKeyEquivalent( event, NULL, _cmd);
+        }
+        else
+        {
+            // if no view is currently focused use the Cocoa way of handling accelerators (top-down the window hierarchy)
+            wxOSX_PerformKeyEventHandlerPtr superimpl = (wxOSX_PerformKeyEventHandlerPtr) [[slf superclass] instanceMethodForSelector:(SEL)_cmd];
+            return superimpl(slf, (SEL)_cmd, event);
+        }
+    }
+    return YES;
+}
+
 bool wxWidgetCocoaImpl::acceptsFirstResponder(WXWidget slf, void *_cmd)
 {
     if ( HasUserKeyHandling() )
@@ -3476,6 +3605,8 @@ void wxOSXCocoaClassAddWXMethods(Class c, wxOSXSkipOverrides skipFlags, bsOSXAdd
     if ( (addFlags & wxOSXADD_COMMANDBYSELECTOR) )
         wxOSX_CLASS_ADD_METHOD(c, @selector(doCommandBySelector:), (IMP) wxOSX_doCommandBySelector, "v@:@" )
     //Bricsys change end
+
+    wxOSX_CLASS_ADD_METHOD(c, @selector(performKeyEquivalent:), (IMP) wxOSX_performKeyEquivalent, "c@:@" )
 
     wxOSX_CLASS_ADD_METHOD(c, @selector(acceptsFirstResponder), (IMP) wxOSX_acceptsFirstResponder, "c@:" )
     wxOSX_CLASS_ADD_METHOD(c, @selector(becomeFirstResponder), (IMP) wxOSX_becomeFirstResponder, "c@:" )

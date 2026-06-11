@@ -1941,8 +1941,7 @@ BOOL wxOSX_performKeyEquivalent(NSView* self, SEL _cmd, NSEvent *event)
         // 3. if the event hasn't been handled, walk up the window hierarchy, but do only accelerators this way, not KEY_DOWN events
         if( !handled )
         {
-            wxDialog* dialog = wxDynamicCast(impl->GetWXPeer(), wxDialog);
-            if( dialog && dialog->IsModal())
+            if( impl->GetWXPeer()->GetExtraStyle() & wxWS_EX_BLOCK_EVENTS )
                 return NO;
             wxWindowMac* parent = impl->GetWXPeer()->GetParent();
             if(!parent)
@@ -3262,9 +3261,7 @@ bool wxWidgetCocoaImpl::performKeyEquivalent(WX_NSEvent event, WXWidget slf, voi
             if(checkDefaultItem(GetWXPeer(), event))
                 return YES;
             
-            //stop going up in the window hierarchy only if the top window it is a modal dialog
-            wxDialog* dialog = wxDynamicCast(GetWXPeer(), wxDialog);
-            if( dialog && dialog->IsModal())
+            if( GetWXPeer()->GetExtraStyle() & wxWS_EX_BLOCK_EVENTS )
                 return NO;
             wxWindowMac* parent = GetWXPeer()->GetParent();
             if(!parent)

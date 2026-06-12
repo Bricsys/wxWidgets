@@ -2010,7 +2010,8 @@ unsigned int wxOnDraggingEnteredOrUpdated(wxWidgetCocoaImpl* viewImpl,
                                           WXWidget slf, void *_cmd,
                                           void *s, bool entered)
 {
-    wxDropSource::GetCurrentDropSource()->SetCursorOntoDropTargetWnd(true);
+    if(wxDropSource::GetCurrentDropSource())
+        wxDropSource::GetCurrentDropSource()->SetCursorOntoDropTargetWnd(true);
     wxWindow* wxpeer = viewImpl->GetWXPeer();
     wxDropTarget* target = wxpeer ? wxpeer->GetDropTarget() : NULL;
     if ( target == NULL )
@@ -2137,7 +2138,8 @@ void wxWidgetCocoaImpl::draggingExited(void* s, WXWidget slf, void *_cmd)
     target->SetCurrentDragSource(&pb);
     target->OnLeave();
     
-    wxDropSource::GetCurrentDropSource()->SetCursorOntoDropTargetWnd(false);
+    if(wxDropSource::GetCurrentDropSource())
+        wxDropSource::GetCurrentDropSource()->SetCursorOntoDropTargetWnd(true);
  }
 
 unsigned int wxWidgetCocoaImpl::draggingUpdated(void* s, WXWidget slf, void *_cmd)

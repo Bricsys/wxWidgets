@@ -4335,39 +4335,62 @@ void wxGrid::ProcessRowColLabelMouseEvent( const wxGridOperations &oper, wxMouse
             if ( line >= 0 &&
                  oper.SendEvent( this, wxEVT_GRID_LABEL_LEFT_CLICK, line, event ) == Event_Unhandled )
             {
-                if (m_canDragRowMove) // BRICSYS DragRowMove
+                if ( oper.CanDragMove(this) )
                 {
-                    //Show button as pressed
-                    wxClientDC dc(m_rowLabelWin);
-                    int rowTop = GetRowTop(line);
-                    int rowBottom = GetRowBottom(line);
-                    dc.SetPen(wxPen(m_rowLabelWin->GetBackgroundColour(), 1));
-                    dc.DrawLine(1, rowTop, m_rowLabelWidth-1, rowTop);
-                    dc.DrawLine(1, rowTop, 1, rowBottom);
-                    ChangeCursorMode(WXGRID_CURSOR_MOVE_ROW, m_rowLabelWin);
+                    ChangeCursorMode(oper.GetCursorModeMove(), headerWin);
+
+                    // Show button as pressed
+                    m_dragMoveRowOrCol = line;
+                    wxClientDC dc( headerWin );
+                    oper.PrepareDCForLabels(this, dc);
+                    oper.DrawLineLabel(this, dc, line);
                 }
                 else
                 {
-                    if ( !event.ShiftDown() && !event.CmdDown() )
-                        ClearSelection();
-                    if ( m_selection )
+                    // Check if row/col selection is possible and allowed, before doing
+                    // anything else, including changing the cursor mode to "select
+                    // row"/"select col".
+                    if ( m_selection && m_numRows > 0 && m_numCols > 0 &&
+                            m_selection->GetSelectionMode() != dual.GetSelectionMode() )
                     {
-                        if ( event.ShiftDown() )
+                        bool selectNewLine = false,
+                             makeLineCurrent = false;
+
+                        if ( event.ShiftDown() && !event.CmdDown() )
                         {
-                            m_selection->SelectBlock
-                                         (
-                                            m_currentCellCoords.GetRow(), 0,
-                                            line, GetNumberCols() - 1,
-                                            event
-                                         );
+                            // Continue editing the current selection and don't
+                            // move the grid cursor.
+                            oper.SelectionExtendCurrentBlock(this, line, event);
+                            oper.MakeLineVisible(this, line);
+                        }
+                        else if ( event.CmdDown() && !event.ShiftDown() )
+                        {
+                            if ( oper.IsLineInSelection(this, line) )
+                            {
+                                oper.DeselectLine(this, line);
+                                makeLineCurrent = true;
+                            }
+                            else
+                            {
+                                makeLineCurrent =
+                                selectNewLine = true;
+                            }
                         }
                         else
                         {
-                            m_selection->SelectRow(line, event);
+                            ClearSelection();
+                            makeLineCurrent =
+                            selectNewLine = true;
                         }
-                    }
 
-                    ChangeCursorMode(WXGRID_CURSOR_SELECT_ROW, m_rowLabelWin);
+                        if ( selectNewLine )
+                            oper.SelectLine(this, line, event);
+
+                        if ( makeLineCurrent )
+                            oper.MakeLineCurrent(this, line);
+
+                        ChangeCursorMode(oper.GetCursorModeSelect(), labelWin);
+                    }
                 }
             }
         }
@@ -5317,10 +5340,36 @@ void wxGrid::DoEndMoveRow(int pos)
 {
     wxASSERT_MSG( m_dragMoveRowOrCol != -1, "no matching DoStartMoveRow?" );
 
-    if ( SendEvent(wxEVT_GRID_ROW_MOVE, m_dragMoveRowOrCol, -1) != Event_Vetoed )
-        SetRowPos(m_dragMoveRowOrCol, pos);
-
+    const int oldPos = m_dragMoveRowOrCol;
     m_dragMoveRowOrCol = -1;
+
+    // Nothing to do if the row was dropped back at its original position.
+    if ( pos == oldPos )
+        return;
+
+    // BRICSYS DragRowMove: unlike column moving (which only changes the display
+    // order via SetColPos()), moving a row physically reorders the underlying
+    // table data so that GetCellValue() reflects the new order. This matches the
+    // wxEVT_GRID_ROW_MOVING / wxEVT_GRID_ROW_MOVED contract used by client code,
+    // whose ROW_MOVED handler inspects the moved row's cells at their new position.
+
+    // Give the application a chance to veto the move.
+    if ( SendEvent(wxEVT_GRID_ROW_MOVING, oldPos, -1) == Event_Vetoed )
+        return;
+
+    // Reorder the table rows (and their attributes) in place. Tables that do not
+    // support moving rows leave MoveRows() returning false, in which case nothing
+    // is changed and no ROW_MOVED event is sent.
+    if ( m_table && m_table->MoveRows(oldPos, pos, 1) )
+    {
+        if ( wxGridCellAttrProvider* attrProvider = m_table->GetAttrProvider() )
+            attrProvider->MoveAttrRows(oldPos, pos, 1);
+
+        ForceRefresh();
+
+        // GetRow() of this event is the row's new position.
+        SendEvent(wxEVT_GRID_ROW_MOVED, pos, -1);
+    }
 }
 
 void wxGrid::RefreshAfterRowPosChange()

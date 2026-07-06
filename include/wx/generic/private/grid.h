@@ -239,7 +239,23 @@ private:
 
     void OnEndResize(wxHeaderCtrlEvent& event)
     {
+        // start Bricsys change (RM-73535)
+        const unsigned col = event.GetColumn();
+        const int widthBefore = GetOwner()->GetColWidth(col);
+        // end Bricsys change
+
         GetOwner()->DoHeaderEndDragResizeCol(event.GetWidth());
+
+        // start Bricsys change (RM-73535)
+        // DoSetColSize() returns early when the final resize width equals the
+        // last live-drag width (diff==0), skipping UpdateIfNotResizing() and
+        // leaving the header visually stale on macOS where wxPaintDC is clipped
+        // to the OS dirty rect. Detect this by comparing the column width before
+        // and after: if unchanged, force an explicit repaint from this column
+        // rightward.
+        if ( GetOwner()->GetColWidth(col) == widthBefore )
+            UpdateColumn(col);
+        // end Bricsys change
 
         event.Skip();
     }

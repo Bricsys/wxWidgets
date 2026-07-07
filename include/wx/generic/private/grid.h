@@ -255,7 +255,8 @@ private:
         // entirely. Force a full repaint from this column rightward in that
         // case.
 #ifndef __WXMSW__
-        if ( widthBefore >= 0 && GetOwner()->GetColSize(col) == widthBefore )
+        if ( widthBefore >= 0 && col < GetOwner()->GetNumberCols() &&
+             GetOwner()->GetColSize(col) == widthBefore )
             UpdateColumn(static_cast<unsigned>(col));
 #endif // !__WXMSW__
         // end Bricsys change

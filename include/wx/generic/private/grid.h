@@ -239,7 +239,27 @@ private:
 
     void OnEndResize(wxHeaderCtrlEvent& event)
     {
+        // start Bricsys change (RM-73535)
+#ifndef __WXMSW__
+        const int col = event.GetColumn();
+        const int widthBefore = col >= 0 && col < GetOwner()->GetNumberCols()
+                                    ? GetOwner()->GetColSize(col) : -1;
+#endif // !__WXMSW__
+        // end Bricsys change
+
         GetOwner()->DoHeaderEndDragResizeCol(event.GetWidth());
+
+        // start Bricsys change (RM-73535)
+        // DoSetColSize() returns early when the final resize width equals the
+        // last live-drag step (diff==0), skipping UpdateIfNotResizing()
+        // entirely. Force a full repaint from this column rightward in that
+        // case.
+#ifndef __WXMSW__
+        if ( widthBefore >= 0 && col < GetOwner()->GetNumberCols() &&
+             GetOwner()->GetColSize(col) == widthBefore )
+            UpdateColumn(static_cast<unsigned>(col));
+#endif // !__WXMSW__
+        // end Bricsys change
 
         event.Skip();
     }

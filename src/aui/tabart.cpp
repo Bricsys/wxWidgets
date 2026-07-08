@@ -457,6 +457,9 @@ void wxAuiGenericTabArt::DrawTab(wxDC& dc,
     int drawn_tab_height = border_points[0].y - border_points[1].y;
 
     bool isdark = wxSystemSettings::GetAppearance().IsUsingDarkBackground();
+#if 1  // Bricsys change, torstenm : change : allow dark-mode 'active tab' even when OS is in light mode ! (from WX 3.1)
+    isdark = isdark || ((m_baseColour.Red() < 75) && (m_baseColour.Green() < 75) && (m_baseColour.Blue() < 75));
+#endif
 
     wxColor back_color = m_baseColour;
     if (page.active)

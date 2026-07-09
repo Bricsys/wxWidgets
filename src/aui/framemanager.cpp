@@ -2550,14 +2550,6 @@ void wxAuiManager::Update()
             // Bricsys change: show gripper when toolbar is not floating.
             p.Gripper(true);
 
-#ifdef __WXMAC__
-            // Bricsys change: 
-            // restore the close button for caption panes that had it cleared while floating 
-            if (!p.IsToolbar())
-                p.CloseButton(true);
-            // end Bricsys change
-#endif
-
             // the following block is a workaround for bug #1531361
             // (see wxWidgets sourceforge page).  On wxGTK (only), when
             // a frame is shown/hidden, a move event unfortunately
@@ -2624,11 +2616,15 @@ void wxAuiManager::Update()
             }
 
             // Bricsys change: don't show Close/Minimize/Maximize buttons when floating
-            // they impede dragging of vertical toolbars
+            // they impede dragging of vertical toolbars; limit to toolbars only so that
+            // caption panes retain their configured button state (RM-73650)
 #ifdef __WXMAC__
-            p.CloseButton(false);
-            p.MaximizeButton(false);
-            p.MinimizeButton(false);
+            if (p.IsToolbar())
+            {
+                p.CloseButton(false);
+                p.MaximizeButton(false);
+                p.MinimizeButton(false);
+            }
 #endif //__WXMAC__
             // end Bricsys change
             

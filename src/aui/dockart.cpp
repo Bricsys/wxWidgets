@@ -277,8 +277,11 @@ wxAuiDefaultDockArt::InitBitmaps ()
         0x7f,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
 
 #ifdef __WXMAC__
-    const wxColour inactive = wxSystemSettings::GetColour(wxSYS_COLOUR_INACTIVECAPTION);
-    const wxColour active = wxSystemSettings::GetColour(wxSYS_COLOUR_CAPTIONTEXT);
+    // Bricsys change: 
+    // restore wx 3.1.2 behaviour of always using white for close/maximize/restore buttons on macOS. 
+    // end Bricsys change
+    const wxColour inactive = *wxWHITE;
+    const wxColour active   = *wxWHITE;
 #else
     const wxColor inactive = m_inactiveCaptionTextColour;
     const wxColor active = m_activeCaptionTextColour;

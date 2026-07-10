@@ -101,8 +101,14 @@ void wxButtonCocoaImpl::SetBitmap(const wxBitmapBundle& bitmap)
     {
         [GetNSButton() setBezelStyle:NSRoundedBezelStyle];
     }
-    
+
     wxWidgetCocoaImpl::SetBitmap(bitmap);
+
+    // Bricsys change RM-73703: [NSButton setImage:] resets imagePosition to NSImageLeft;
+    // set NSImageOnly after so bitmap-only buttons display the icon centred.
+    if ( bitmap.IsOk() && [[GetNSButton() title] length] == 0 )
+        [GetNSButton() setImagePosition:NSImageOnly];
+    // end Bricsys change
 }
 
 bool wxButtonCocoaImpl::SetBackgroundColour(const wxColour& col )
@@ -254,7 +260,15 @@ bool wxButton::SetBackgroundColour(const wxColor& col)
                                  GetId(),
                                  GetLabel());
 
-    return impl->SetBackgroundColour(col);
+    bool result = impl->SetBackgroundColour(col);
+
+    // Bricsys change RM-73703: SetBezelStyleFromBorderFlags resets imagePosition;
+    // re-apply NSImageOnly for bitmap-only buttons so the icon stays centred on theme change.
+    if ( GetBitmapLabel().IsOk() && GetLabel().empty() )
+        [impl->GetNSButton() setImagePosition:NSImageOnly];
+    // end Bricsys change
+
+    return result;
 }
 
 // Set the keyboard accelerator key from the label (e.g. "Click &Me")
@@ -341,7 +355,12 @@ wxWidgetImplType* wxWidgetImpl::CreateBitmapButton( wxWindowMac* wxpeer,
     SetBezelStyleFromBorderFlags(v, style, winid, wxString(), bitmap);
 
     if (bitmap.IsOk())
+    {
         [v setImage: wxOSXGetImageFromBundle(bitmap) ];
+        // Bricsys change RM-73703: set NSImageOnly after setImage: so the icon is centred.
+        [v setImagePosition:NSImageOnly];
+        // end Bricsys change
+    }
 
     [v setButtonType:NSMomentaryPushInButton];
     wxWidgetCocoaImpl* c = new wxButtonCocoaImpl( wxpeer, v );

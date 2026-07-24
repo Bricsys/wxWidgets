@@ -2341,9 +2341,14 @@ void wxComboCtrlBase::DoShowPopup( const wxRect& rect, int WXUNUSED(flags) )
         // Make sure the popup window is shown in the right position.
         // Should not matter even if animation already did this.
 
-        // Some platforms (GTK) may like SetSize and Move to be separate
-        // (though the bug was probably fixed).
+        // Moving a non-owned window to another monitor can synchronously
+        // rescale it in WM_DPICHANGED, overriding the size passed here.
+#ifdef __WXMSW__
+        winPopup->Move(rect.GetPosition());
+        winPopup->SetSize(rect.GetSize());
+#else
         winPopup->SetSize( rect );
+#endif
 
 #if wxUSE_POPUPWIN
         ((wxPopupTransientWindow*)winPopup)->Popup(m_popup);

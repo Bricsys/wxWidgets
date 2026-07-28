@@ -218,6 +218,9 @@ def main():
         elif PLATFORM == 'linux':
             cmd += f'-DCMAKE_BUILD_TYPE={build_type} '
             cmd += f'-DCMAKE_INSTALL_LIBDIR=lib '
+
+        cmd += f'-DCMAKE_INSTALL_MESSAGE=LAZY '
+
         if args.cmake_config_args is not None:
             cmd += args.cmake_config_args
         return cmd

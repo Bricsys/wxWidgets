@@ -1,4 +1,4 @@
-
+@echo off
 SET PATH=%PATH%;%THIRDPARTY_PATH%\cmake\win64\bin
 
 :: Default build type

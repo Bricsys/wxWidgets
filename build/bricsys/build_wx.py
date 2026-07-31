@@ -210,7 +210,7 @@ def main():
         elif PLATFORM == 'mac':
             cmd += f'-DCMAKE_BUILD_TYPE={build_type} '
             cmd += f'-DCMAKE_INSTALL_LIBDIR=lib '
-            cmd += f'-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" '
+            cmd += f'-DCMAKE_OSX_ARCHITECTURES="arm64" '
             cmd += f'-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 '
             cmd += f'-DCMAKE_MACOSX_RPATH=OFF '
             cmd += f'-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=TRUE '

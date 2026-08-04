@@ -51,6 +51,7 @@ def main():
         help='Comma-separated actions: checkout, generate, build, all'
     )
     parser.add_argument('--platform', required='True', help='Platform: windows, linux, mac')
+    parser.add_argument('--arch', default='x64', help='Windows arch: x64 or Win32 (ignored on non-Windows)')
     parser.add_argument('--cmake_generator', help='The CMake Generator to use')
     parser.add_argument('--cmake_config_args', help='Extra cmake configure arguments')
     parser.add_argument('--build_type', default='all', help='Build type: all, release, debug, release_debug')
@@ -204,7 +205,7 @@ def main():
             f'-DwxBUILD_INSTALL=ON '
         )
         if PLATFORM == 'windows':
-            cmd += f'-DCMAKE_GENERATOR_PLATFORM=x64 '
+            cmd += f'-DCMAKE_GENERATOR_PLATFORM={args.arch} '
             cmd += f'-DwxUSE_LIBTIFF=builtin '
             cmd += f'-DCMAKE_CONFIGURATION_TYPES="Debug;RelWithDebInfo" '
         elif PLATFORM == 'mac':
@@ -231,6 +232,8 @@ def main():
         print(f"ACTION: {args.action}")
         print(f"CMAKE GENERATOR: {CMAKE_GENERATOR}")
         print(f"PLATFORM: {PLATFORM}")
+        if PLATFORM == 'windows':
+            print(f"ARCH: {args.arch}")
         print(f"WX REPO URL: {WXGIT_REPO_URL}")
         print(f"SRC DIR: {SRC_DIR}")
         for label, build_dir, install_dir in build_types_info:

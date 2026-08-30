@@ -222,6 +222,9 @@ static void classifyWordLisp(unsigned int start, unsigned int end,
 	}
     str[len + 1] = '\0';
 
+    if ((strcmp(str, "1+") == 0) || (strcmp(str, "1-") == 0)) // (1+ ...) & (1- ...) Lisp functions
+        digit_flag = false;
+
     if (digit_flag)
     {
         if (numExps == 1) --numSigns;  // allow 1 more '-/+' if 'e' is present

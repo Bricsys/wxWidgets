@@ -1721,10 +1721,6 @@ void wxAuiManager::GetPanePositionsAndSizes(wxAuiDockInfo& dock,
                                             wxArrayInt& positions,
                                             wxArrayInt& sizes)
 {
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int gripperSize = m_art->GetMetric(wxAUI_DOCKART_GRIPPER_SIZE);
-
     positions.Empty();
     sizes.Empty();
 
@@ -1749,6 +1745,10 @@ void wxAuiManager::GetPanePositionsAndSizes(wxAuiDockInfo& dock,
     for (pane_i = 0; pane_i < pane_count; ++pane_i)
     {
         wxAuiPaneInfo& pane = *(dock.panes.Item(pane_i));
+        int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+        int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+        int gripperSize = m_art->GetMetricForWindow(wxAUI_DOCKART_GRIPPER_SIZE, pane.window);
+
         positions.Add(pane.dock_pos);
         int size = 0;
 
@@ -1814,10 +1814,10 @@ void wxAuiManager::LayoutAddPane(wxSizer* cont,
     wxAuiDockUIPart part;
     wxSizerItem* sizer_item;
 
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-    int gripperSize = m_art->GetMetric(wxAUI_DOCKART_GRIPPER_SIZE);
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int pane_button_size = m_art->GetMetric(wxAUI_DOCKART_PANE_BUTTON_SIZE);
+    int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+    int gripperSize = m_art->GetMetricForWindow(wxAUI_DOCKART_GRIPPER_SIZE, pane.window);
+    int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+    int pane_button_size = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BUTTON_SIZE, pane.window);
 
     // find out the orientation of the item (orientation for panes
     // is the same as the dock's orientation)
@@ -1996,7 +1996,7 @@ void wxAuiManager::LayoutAddDock(wxSizer* cont,
     wxSizerItem* sizer_item;
     wxAuiDockUIPart part;
 
-    int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+    int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, m_frame);
     int orientation = dock.IsHorizontal() ? wxHORIZONTAL : wxVERTICAL;
 
     // resizable bottom and right docks have a sash before them
@@ -2151,8 +2151,8 @@ wxSizer* wxAuiManager::LayoutAll(wxAuiPaneInfoArray& panes,
 {
     wxBoxSizer* container = new wxBoxSizer(wxVERTICAL);
 
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
+    int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, m_frame);
+    int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, m_frame);
     wxSize cli_size = m_frame->GetClientSize();
     int i, dock_count, pane_count;
 
@@ -4321,7 +4321,7 @@ bool wxAuiManager::DoEndResizeAction(wxMouseEvent& event)
     if (m_actionPart && m_actionPart->type==wxAuiDockUIPart::typeDockSizer)
     {
         // first, we must calculate the maximum size the dock may be
-        int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+        int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, m_frame);
 
         int used_width = 0, used_height = 0;
 
@@ -4413,9 +4413,9 @@ bool wxAuiManager::DoEndResizeAction(wxMouseEvent& event)
         int dock_pixels = 0;
         int new_pixsize = 0;
 
-        int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-        int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-        int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+        int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+        int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+        int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, pane.window);
 
         wxPoint new_pos(event.m_x - m_actionOffset.x,
             event.m_y - m_actionOffset.y);

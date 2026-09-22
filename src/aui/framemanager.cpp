@@ -618,6 +618,9 @@ wxBEGIN_EVENT_TABLE(wxAuiManager, wxEvtHandler)
     EVT_CHILD_FOCUS(wxAuiManager::OnChildFocus)
     EVT_AUI_FIND_MANAGER(wxAuiManager::OnFindManager)
     EVT_SYS_COLOUR_CHANGED(wxAuiManager::OnSysColourChanged)
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+    EVT_DPI_CHANGED(wxAuiManager::OnDPIChanged)
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 wxEND_EVENT_TABLE()
 
 
@@ -670,6 +673,43 @@ void wxAuiManager::OnSysColourChanged(wxSysColourChangedEvent& event)
     m_frame->Refresh();
     event.Skip(true);
 }
+
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+
+void wxAuiManager::OnDPIChanged(wxDPIChangedEvent& event)
+{
+    event.Skip();
+
+    for (size_t i = 0; i < m_panes.GetCount(); ++i)
+    {
+        wxAuiPaneInfo& pane = m_panes.Item(i);
+
+        pane.best_size = event.Scale(pane.best_size);
+        pane.min_size = event.Scale(pane.min_size);
+        pane.max_size = event.Scale(pane.max_size);
+        pane.floating_size = event.Scale(pane.floating_size);
+    }
+
+    for (size_t i = 0; i < m_docks.GetCount(); ++i)
+    {
+        wxAuiDockInfo& dock = m_docks.Item(i);
+
+        if (dock.IsHorizontal())
+        {
+            dock.size = event.ScaleY(dock.size);
+            dock.min_size = event.ScaleY(dock.min_size);
+        }
+        else
+        {
+            dock.size = event.ScaleX(dock.size);
+            dock.min_size = event.ScaleX(dock.min_size);
+        }
+    }
+
+    Update();
+}
+
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 
 // creates a floating frame for the windows
 wxAuiFloatingFrame* wxAuiManager::CreateFloatingFrame(wxWindow* parent,

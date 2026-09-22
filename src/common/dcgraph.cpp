@@ -855,6 +855,8 @@ void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
         m_graphicContext->StrokePath(path);
 #endif
     }
+
+    CalcBoundingBox(x, y);
 #endif // BricsCAD change (refs RM-77291)
 }
 

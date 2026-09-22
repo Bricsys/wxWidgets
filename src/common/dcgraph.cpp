@@ -808,10 +808,10 @@ void wxGCDCImpl::DoDrawEllipticArc( wxCoord x, wxCoord y, wxCoord w, wxCoord h,
 
 void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
 {
-// disabled the existing implementation because drawing outside the GUI thread,
-// combined with the intensive pen/brush creation, can trigger reference
-// counting races and eventually a crash.
-#if 0 // BricsCAD change (refs RM-77291)
+// disabled the existing implementation on non-Windows platforms because
+// drawing outside the GUI thread, combined with the intensive pen/brush creation,
+// can trigger reference counting races and eventually a crash.
+#ifdef __WXMSW__ // BricsCAD change (refs RM-77291)
     CalcBoundingBox(x, y);
 
     static std::mutex s_drawPointMutex;
@@ -827,9 +827,7 @@ void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
                                     1 / m_scaleY);
 
     CalcBoundingBox(x, y);
-#endif // BricsCAD change (refs RM-77291)
-
-#if 1 // BricsCAD change (refs RM-77291)
+#else // !__WXMSW__ // BricsCAD change (refs RM-77291)
     wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
 
     if (!m_logicalFunctionSupported)

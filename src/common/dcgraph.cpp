@@ -808,28 +808,23 @@ void wxGCDCImpl::DoDrawEllipticArc( wxCoord x, wxCoord y, wxCoord w, wxCoord h,
 
 void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
 {
-// disabled the existing implementation because drawing outside the GUI thread,
-// combined with the intensive pen/brush creation, can trigger reference
-// counting races and eventually a crash.
-#if 0 // BricsCAD change (refs RM-77291)
-    CalcBoundingBox(x, y);
+// disabled the existing implementation on non-Windows platforms because
+// drawing outside the GUI thread, combined with the intensive pen/brush creation,
+// can trigger reference counting races and eventually a crash.
+#ifdef __WXMSW__ // BricsCAD change (refs RM-77291)
+    wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
 
-    static std::mutex s_drawPointMutex;
-    std::lock_guard<std::mutex> lock(s_drawPointMutex);
+    if (!m_logicalFunctionSupported)
+        return;
 
-    wxDCBrushChanger brushChanger(*GetOwner(),
-                                  wxBrush(m_pen.GetColour()));
-    wxDCPenChanger penChanger(*GetOwner(),
-                              *wxTRANSPARENT_PEN);
+    wxDCBrushChanger brushChanger(*GetOwner(), wxBrush(m_pen.GetColour()));
+    wxDCPenChanger penChanger(*GetOwner(), *wxTRANSPARENT_PEN);
 
-    m_graphicContext->DrawRectangle(x, y,
-                                    1 / m_scaleX,
-                                    1 / m_scaleY);
+    // Raster-based DCs draw a single pixel regardless of scale
+    m_graphicContext->DrawRectangle(x, y, 1 / m_scaleX, 1 / m_scaleY);
 
     CalcBoundingBox(x, y);
-#endif // BricsCAD change (refs RM-77291)
-
-#if 1 // BricsCAD change (refs RM-77291)
+#else // !__WXMSW__ // BricsCAD change (refs RM-77291)
     wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
 
     if (!m_logicalFunctionSupported)
@@ -855,6 +850,8 @@ void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
         m_graphicContext->StrokePath(path);
 #endif
     }
+
+    CalcBoundingBox(x, y);
 #endif // BricsCAD change (refs RM-77291)
 }
 

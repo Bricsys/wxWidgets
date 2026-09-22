@@ -812,19 +812,16 @@ void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
 // drawing outside the GUI thread, combined with the intensive pen/brush creation,
 // can trigger reference counting races and eventually a crash.
 #ifdef __WXMSW__ // BricsCAD change (refs RM-77291)
-    CalcBoundingBox(x, y);
+    wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
 
-    static std::mutex s_drawPointMutex;
-    std::lock_guard<std::mutex> lock(s_drawPointMutex);
+    if (!m_logicalFunctionSupported)
+        return;
 
-    wxDCBrushChanger brushChanger(*GetOwner(),
-                                  wxBrush(m_pen.GetColour()));
-    wxDCPenChanger penChanger(*GetOwner(),
-                              *wxTRANSPARENT_PEN);
+    wxDCBrushChanger brushChanger(*GetOwner(), wxBrush(m_pen.GetColour()));
+    wxDCPenChanger penChanger(*GetOwner(), *wxTRANSPARENT_PEN);
 
-    m_graphicContext->DrawRectangle(x, y,
-                                    1 / m_scaleX,
-                                    1 / m_scaleY);
+    // Raster-based DCs draw a single pixel regardless of scale
+    m_graphicContext->DrawRectangle(x, y, 1 / m_scaleX, 1 / m_scaleY);
 
     CalcBoundingBox(x, y);
 #else // !__WXMSW__ // BricsCAD change (refs RM-77291)

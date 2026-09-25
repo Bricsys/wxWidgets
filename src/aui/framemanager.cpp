@@ -618,6 +618,9 @@ wxBEGIN_EVENT_TABLE(wxAuiManager, wxEvtHandler)
     EVT_CHILD_FOCUS(wxAuiManager::OnChildFocus)
     EVT_AUI_FIND_MANAGER(wxAuiManager::OnFindManager)
     EVT_SYS_COLOUR_CHANGED(wxAuiManager::OnSysColourChanged)
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+    EVT_DPI_CHANGED(wxAuiManager::OnDPIChanged)
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 wxEND_EVENT_TABLE()
 
 
@@ -670,6 +673,43 @@ void wxAuiManager::OnSysColourChanged(wxSysColourChangedEvent& event)
     m_frame->Refresh();
     event.Skip(true);
 }
+
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+
+void wxAuiManager::OnDPIChanged(wxDPIChangedEvent& event)
+{
+    event.Skip();
+
+    for (size_t i = 0; i < m_panes.GetCount(); ++i)
+    {
+        wxAuiPaneInfo& pane = m_panes.Item(i);
+
+        pane.best_size = event.Scale(pane.best_size);
+        pane.min_size = event.Scale(pane.min_size);
+        pane.max_size = event.Scale(pane.max_size);
+        pane.floating_size = event.Scale(pane.floating_size);
+    }
+
+    for (size_t i = 0; i < m_docks.GetCount(); ++i)
+    {
+        wxAuiDockInfo& dock = m_docks.Item(i);
+
+        if (dock.IsHorizontal())
+        {
+            dock.size = event.ScaleY(dock.size);
+            dock.min_size = event.ScaleY(dock.min_size);
+        }
+        else
+        {
+            dock.size = event.ScaleX(dock.size);
+            dock.min_size = event.ScaleX(dock.min_size);
+        }
+    }
+
+    Update();
+}
+
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 
 // creates a floating frame for the windows
 wxAuiFloatingFrame* wxAuiManager::CreateFloatingFrame(wxWindow* parent,
@@ -1678,10 +1718,6 @@ void wxAuiManager::GetPanePositionsAndSizes(wxAuiDockInfo& dock,
                                             wxArrayInt& positions,
                                             wxArrayInt& sizes)
 {
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int gripperSize = m_art->GetMetric(wxAUI_DOCKART_GRIPPER_SIZE);
-
     positions.Empty();
     sizes.Empty();
 
@@ -1706,6 +1742,10 @@ void wxAuiManager::GetPanePositionsAndSizes(wxAuiDockInfo& dock,
     for (pane_i = 0; pane_i < pane_count; ++pane_i)
     {
         wxAuiPaneInfo& pane = *(dock.panes.Item(pane_i));
+        int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+        int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+        int gripperSize = m_art->GetMetricForWindow(wxAUI_DOCKART_GRIPPER_SIZE, pane.window);
+
         positions.Add(pane.dock_pos);
         int size = 0;
 
@@ -1771,10 +1811,10 @@ void wxAuiManager::LayoutAddPane(wxSizer* cont,
     wxAuiDockUIPart part;
     wxSizerItem* sizer_item;
 
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-    int gripperSize = m_art->GetMetric(wxAUI_DOCKART_GRIPPER_SIZE);
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int pane_button_size = m_art->GetMetric(wxAUI_DOCKART_PANE_BUTTON_SIZE);
+    int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+    int gripperSize = m_art->GetMetricForWindow(wxAUI_DOCKART_GRIPPER_SIZE, pane.window);
+    int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+    int pane_button_size = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BUTTON_SIZE, pane.window);
 
     // find out the orientation of the item (orientation for panes
     // is the same as the dock's orientation)
@@ -1953,7 +1993,7 @@ void wxAuiManager::LayoutAddDock(wxSizer* cont,
     wxSizerItem* sizer_item;
     wxAuiDockUIPart part;
 
-    int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+    int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, m_frame);
     int orientation = dock.IsHorizontal() ? wxHORIZONTAL : wxVERTICAL;
 
     // resizable bottom and right docks have a sash before them
@@ -2108,8 +2148,8 @@ wxSizer* wxAuiManager::LayoutAll(wxAuiPaneInfoArray& panes,
 {
     wxBoxSizer* container = new wxBoxSizer(wxVERTICAL);
 
-    int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-    int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
+    int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, m_frame);
+    int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, m_frame);
     wxSize cli_size = m_frame->GetClientSize();
     int i, dock_count, pane_count;
 
@@ -4282,7 +4322,7 @@ bool wxAuiManager::DoEndResizeAction(wxMouseEvent& event)
     if (m_actionPart && m_actionPart->type==wxAuiDockUIPart::typeDockSizer)
     {
         // first, we must calculate the maximum size the dock may be
-        int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+        int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, m_frame);
 
         int used_width = 0, used_height = 0;
 
@@ -4374,9 +4414,9 @@ bool wxAuiManager::DoEndResizeAction(wxMouseEvent& event)
         int dock_pixels = 0;
         int new_pixsize = 0;
 
-        int caption_size = m_art->GetMetric(wxAUI_DOCKART_CAPTION_SIZE);
-        int pane_borderSize = m_art->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-        int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+        int caption_size = m_art->GetMetricForWindow(wxAUI_DOCKART_CAPTION_SIZE, pane.window);
+        int pane_borderSize = m_art->GetMetricForWindow(wxAUI_DOCKART_PANE_BORDER_SIZE, pane.window);
+        int sashSize = m_art->GetMetricForWindow(wxAUI_DOCKART_SASH_SIZE, pane.window);
 
         wxPoint new_pos(event.m_x - m_actionOffset.x,
             event.m_y - m_actionOffset.y);

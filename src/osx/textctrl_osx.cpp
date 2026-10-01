@@ -42,7 +42,6 @@
 #include "wx/thread.h"
 
 #include "wx/osx/private.h"
-#include "wx/osx/private/available.h"
 
 wxBEGIN_EVENT_TABLE(wxTextCtrl, wxTextCtrlBase)
     EVT_DROP_FILES(wxTextCtrl::OnDropFiles)
@@ -210,22 +209,22 @@ wxSize wxTextCtrl::DoGetSizeFromTextSize(int xlen, int ylen) const
         // these are the numbers from the HIG:
         switch ( m_windowVariant )
         {
+            case wxWINDOW_VARIANT_NORMAL :
+                hText = 22;
+                break ;
+
             case wxWINDOW_VARIANT_SMALL :
                 hText = 19;
                 break ;
 
             case wxWINDOW_VARIANT_MINI :
-                hText = 16;
+                hText = 15;
                 break ;
 
-            case wxWINDOW_VARIANT_NORMAL :
             default :
-                hText = 21;
+                hText = 22;
                 break ;
         }
-
-        if ( WX_IS_MACOS_AVAILABLE(26, 0) )
-            hText += 3;
 
         // the numbers above include the border size, so subtract it before
         // possibly adding it back below
@@ -242,8 +241,6 @@ wxSize wxTextCtrl::DoGetSizeFromTextSize(int xlen, int ylen) const
     // since this method is now called with native field widths, an empty field still
     // has small positive xlen, therefore don't compare just with > 0 anymore
     wxSize size(xlen > TEXTCTRL_MAX_EMPTY_WIDTH ? xlen : 100, hText);
-
-    // !!! Any changes to these adjustments must be mirrored in wxNSTextFieldControl::GetBestSize() !!!
 
     // Use extra margin size which works under macOS 10.15: note that we don't
     // need the vertical margin when using the automatically determined hText.

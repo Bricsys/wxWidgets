@@ -1263,16 +1263,7 @@ bool wxAuiManager::DetachPane(wxWindow* window)
                 if (p.frame->IsShown())
                     p.frame->Show(false);
 
-                // reparent to m_frame and destroy the pane
-                if (m_actionWindow == p.frame)
-                {
-                    m_actionWindow = NULL;
-                }
-
-                p.window->Reparent(m_frame);
-                p.frame->SetSizer(NULL);
-                p.frame->Destroy();
-                p.frame = NULL;
+                DestroyFloatingFrame(p);
             }
 
             // make sure there are no references to this pane in our uiparts,
@@ -1297,6 +1288,18 @@ bool wxAuiManager::DetachPane(wxWindow* window)
         }
     }
     return false;
+}
+
+void wxAuiManager::DestroyFloatingFrame(wxAuiPaneInfo& paneInfo)
+{
+    wxCHECK_RET( paneInfo.frame, "no floating frame to destroy" );
+
+    if (paneInfo.window && paneInfo.window->GetParent() != m_frame)
+        paneInfo.window->Reparent(m_frame);
+
+    // wxAuiFloatingFrame::Destroy() removes the pane window from its sizer.
+    paneInfo.frame->Destroy();
+    paneInfo.frame = nullptr;
 }
 
 // ClosePane() destroys or hides the pane depending on its flags
@@ -2568,11 +2571,7 @@ void wxAuiManager::Update()
             if (p.frame->IsShown())
                 p.frame->Show(false);
 
-            // reparent to m_frame and destroy the pane
-            p.window->Reparent(m_frame);
-            p.frame->SetSizer(NULL);
-            p.frame->Destroy();
-            p.frame = NULL;
+            DestroyFloatingFrame(p);
         }
     }
 

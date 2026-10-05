@@ -575,6 +575,9 @@ protected:
     void OnHintFadeTimer(wxTimerEvent& evt);
     void OnFindManager(wxAuiManagerEvent& evt);
     void OnSysColourChanged(wxSysColourChangedEvent& event);
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+    void OnDPIChanged(wxDPIChangedEvent& event);
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 
 protected:
 

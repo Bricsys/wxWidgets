@@ -621,6 +621,11 @@ protected:
 
     void* m_reserved;
 
+private:
+    // Reparent the pane window back to the managed window and destroy the
+    // floating frame containing it, which must be non-null.
+    void DestroyFloatingFrame(wxAuiPaneInfo& paneInfo);
+
 #ifndef SWIG
     wxDECLARE_EVENT_TABLE();
     wxDECLARE_CLASS(wxAuiManager);

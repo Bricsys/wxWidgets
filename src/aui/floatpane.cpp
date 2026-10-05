@@ -201,7 +201,8 @@ bool wxAuiFloatingFrame::IsTopNavigationDomain(NavigationKind kind) const
 
 void wxAuiFloatingFrame::OnSize(wxSizeEvent& WXUNUSED(event))
 {
-    if (m_ownerMgr)
+    // Native events can arrive after redocking, before deferred deletion.
+    if (m_ownerMgr && m_mgr.GetManagedWindow())
     {
         m_ownerMgr->OnFloatingPaneResized(m_paneWindow, GetRect());
     }
@@ -222,6 +223,9 @@ void wxAuiFloatingFrame::OnClose(wxCloseEvent& evt)
 
 void wxAuiFloatingFrame::OnMoveEvent(wxMoveEvent& event)
 {
+    if (!m_mgr.GetManagedWindow())
+        return;
+
     // Always sync pane's floating_pos with frame's position
     if (m_ownerMgr)
     {
@@ -337,7 +341,7 @@ void wxAuiFloatingFrame::OnMoveEvent(wxMoveEvent& event)
 
 void wxAuiFloatingFrame::OnIdle(wxIdleEvent& event)
 {
-    if (m_moving)
+    if (m_moving && m_mgr.GetManagedWindow())
     {
         if (!isMouseDown())
         {
@@ -381,7 +385,7 @@ void wxAuiFloatingFrame::OnMoveFinished()
 
 void wxAuiFloatingFrame::OnActivate(wxActivateEvent& event)
 {
-    if (m_ownerMgr && event.GetActive())
+    if (m_ownerMgr && m_mgr.GetManagedWindow() && event.GetActive())
     {
         m_ownerMgr->OnFloatingPaneActivated(m_paneWindow);
     }

@@ -806,8 +806,12 @@ void wxGCDCImpl::DoDrawEllipticArc( wxCoord x, wxCoord y, wxCoord w, wxCoord h,
     m_graphicContext->PopState();
 }
 
-void wxGCDCImpl::DoDrawPoint( wxCoord x, wxCoord y )
+void wxGCDCImpl::DoDrawPoint(wxCoord x, wxCoord y)
 {
+// disabled the existing implementation on non-Windows platforms because
+// drawing outside the GUI thread, combined with the intensive pen/brush creation,
+// can trigger reference counting races and eventually a crash.
+#ifdef __WXMSW__ // BricsCAD change (refs RM-77291)
     wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
 
     if (!m_logicalFunctionSupported)
@@ -820,6 +824,35 @@ void wxGCDCImpl::DoDrawPoint( wxCoord x, wxCoord y )
     m_graphicContext->DrawRectangle(x, y, 1 / m_scaleX, 1 / m_scaleY);
 
     CalcBoundingBox(x, y);
+#else // !__WXMSW__ // BricsCAD change (refs RM-77291)
+    wxCHECK_RET( IsOk(), wxT("wxGCDC(cg)::DoDrawPoint - invalid DC") );
+
+    if (!m_logicalFunctionSupported)
+        return;
+
+#if defined(__WXMSW__) && wxUSE_GRAPHICS_GDIPLUS
+    // single point path does not work with GDI+
+    if (m_graphicContext->GetRenderer() == wxGraphicsRenderer::GetGDIPlusRenderer())
+    {
+        const double dx = 0.25 / m_scaleX;
+        const double dy = 0.25 / m_scaleY;
+        m_graphicContext->StrokeLine(x - dx, y - dy, x + dx, y + dy);
+    }
+    else
+#endif
+    {
+#ifdef __WXOSX__
+        m_graphicContext->StrokeLine(x, y, x, y);
+#else
+        wxGraphicsPath path(m_graphicContext->CreatePath());
+        path.MoveToPoint(x, y);
+        path.CloseSubpath();
+        m_graphicContext->StrokePath(path);
+#endif
+    }
+
+    CalcBoundingBox(x, y);
+#endif // BricsCAD change (refs RM-77291)
 }
 
 void wxGCDCImpl::DoDrawLines(int n, const wxPoint points[],

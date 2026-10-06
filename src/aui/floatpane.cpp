@@ -201,8 +201,12 @@ bool wxAuiFloatingFrame::IsTopNavigationDomain(NavigationKind kind) const
 
 void wxAuiFloatingFrame::OnSize(wxSizeEvent& WXUNUSED(event))
 {
+#ifdef __APPLE__
     // Native events can arrive after redocking, before deferred deletion.
     if (m_ownerMgr && m_mgr.GetManagedWindow())
+#else
+    if (m_ownerMgr)
+#endif
     {
         m_ownerMgr->OnFloatingPaneResized(m_paneWindow, GetRect());
     }
@@ -223,8 +227,10 @@ void wxAuiFloatingFrame::OnClose(wxCloseEvent& evt)
 
 void wxAuiFloatingFrame::OnMoveEvent(wxMoveEvent& event)
 {
+#ifdef __APPLE__
     if (!m_mgr.GetManagedWindow())
         return;
+#endif
 
     // Always sync pane's floating_pos with frame's position
     if (m_ownerMgr)
@@ -341,7 +347,11 @@ void wxAuiFloatingFrame::OnMoveEvent(wxMoveEvent& event)
 
 void wxAuiFloatingFrame::OnIdle(wxIdleEvent& event)
 {
+#ifdef __APPLE__
     if (m_moving && m_mgr.GetManagedWindow())
+#else
+    if (m_moving)
+#endif
     {
         if (!isMouseDown())
         {
@@ -385,7 +395,11 @@ void wxAuiFloatingFrame::OnMoveFinished()
 
 void wxAuiFloatingFrame::OnActivate(wxActivateEvent& event)
 {
+#ifdef __APPLE__
     if (m_ownerMgr && m_mgr.GetManagedWindow() && event.GetActive())
+#else
+    if (m_ownerMgr && event.GetActive())
+#endif
     {
         m_ownerMgr->OnFloatingPaneActivated(m_paneWindow);
     }

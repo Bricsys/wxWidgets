@@ -15,7 +15,7 @@ set PYTHON_BUILD_TYPE=%BUILD_TYPE%
 if "%BUILD_TYPE%" == "release" set PYTHON_BUILD_TYPE=release_debug
 
 if "%ACTION_TYPE%" == "generate" (
-    python build/bricsys/build_wx.py --wx_src_dir=. --wx_install_dir=./install_bsys --platform=windows --action=generate
+    python build/bricsys/build_wx.py --wx_src_dir=. --wx_install_dir=./install_bsys --platform=windows --action=generate --cmake_generator="""Visual Studio 18""" --cmake_config_args="-T v145 -DCMAKE_SYSTEM_VERSION=10.0.26100.0"
 )
 
 if "%ACTION_TYPE%" == "build" (

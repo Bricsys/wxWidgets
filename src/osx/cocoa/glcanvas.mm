@@ -181,10 +181,17 @@ WXGLPixelFormat WXGLChoosePixelFormat(const int *GLAttrs,
     return YES;
 }
 
+// Bricsys change: #76558 glCanvas is fully transparant to input
+// passing input to it's parent window instead
 - (BOOL) acceptsFirstResponder
 {
-    return YES;
+    return NO;
 }
+- (NSView*) hitTest: (NSPoint) point
+{
+    return nil;
+}
+// Bricsys change end: #76558
 
 // Bricsys change: #22025 add TouchPadGesturesDelegate protocol and all the members
 - (id)initWithFrame:(NSRect)rectBox {

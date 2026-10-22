@@ -1407,7 +1407,15 @@ bool wxWindowBase::Reparent(wxWindowBase *newParent)
     // We need to notify window (and its subwindows) if by changing the parent
     // we also change our enabled/disabled status.
     const bool newEnabledState = IsEnabled();
+    // begin BricsCAD change
+#ifdef __WXGTK__
+    // GTK inherits parent sensitivity; explicitly disabling the window here would
+    // persist after the parent is re-enabled.
+    if ( newEnabledState != oldEnabledState && newEnabledState )
+#else
     if ( newEnabledState != oldEnabledState )
+#endif
+    // end BricsCAD change
     {
         NotifyWindowOnEnableChange(newEnabledState);
     }

@@ -40,6 +40,9 @@
 #include "wx/scrolwin.h"
 #include "wx/textwrapper.h"
 #include "wx/modalhook.h"
+#if 1 //Bricsys change (refs RM-77573)
+#include "wx/evtloop.h"
+#endif
 
 #include "wx/display.h"
 
@@ -197,7 +200,10 @@ wxDialogBase::DoGetParentForDialog(wxDialogModality modality,
     if ( !parent )
     {
         wxWindow* top = CheckIfCanBeUsedAsParent(modality, wxApp::GetMainTopWindow());
-        if ( top && top->IsEnabled() )
+        // relies on ShowModal() running a wxModalEventLoop (GH-104) on all platforms
+        wxModalEventLoop* evtLoop =
+            dynamic_cast<wxModalEventLoop*>(wxEventLoopBase::GetActive());
+        if ( top && !evtLoop )
             parent = top;
     }
 #endif

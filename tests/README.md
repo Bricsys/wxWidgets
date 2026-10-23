@@ -11,3 +11,8 @@ more information.
 
 This file also contains the instructions for running the tests if you'd just
 like to do it to confirm that the library works correctly.
+
+On macOS, CMake GUI test builds include the native dual-touch tracker regression
+tests. Run `test_gui "[touchtracker]"` to exercise stable touch identities,
+replacement fingers, partial lifts, cancellation, and restarting a gesture.
+These tests use synthetic Cocoa touches and do not require a physical touchpad.

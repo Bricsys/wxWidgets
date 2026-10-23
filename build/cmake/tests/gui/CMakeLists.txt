@@ -198,6 +198,10 @@ set(TEST_GUI_DATA
     intl/ja/internat.po
     )
 
+if(WXOSX_COCOA)
+    list(APPEND TEST_GUI_SRC events/touchtracker.mm)
+endif()
+
 wx_add_test(test_gui CONSOLE_GUI ${TEST_GUI_SRC}
     DATA ${TEST_GUI_DATA}
     )

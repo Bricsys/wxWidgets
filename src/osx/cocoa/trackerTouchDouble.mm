@@ -1,6 +1,8 @@
 
 #import "wx/osx/cocoa/trackerTouchDouble.h"
 
+#include <utility>
+
 @interface DualTouchTracker()
   @property BOOL isTracking;
   @property(readwrite) NSPoint initialPoint;
@@ -40,6 +42,7 @@
     NSSet *touches = [event touchesMatchingPhase:NSTouchPhaseTouching inView:self.view];
     
     if (touches.count == 2) {
+        [self cancelTracking];
         self.initialPoint = [self.view convertPointFromBacking:[event locationInWindow]];
         NSArray *array = [touches allObjects];
         _initialTouches[0] = [[array objectAtIndex:0] retain];
@@ -74,8 +77,27 @@
     self.modifiers = [event modifierFlags];
     NSSet *touches = [event touchesMatchingPhase:NSTouchPhaseTouching inView:self.view];
     
-    if (touches.count == 2 && _initialTouches[0]) {
+    if (touches.count != 2) {
+        [self cancelTracking];
+        return;
+    }
+
+    if (_initialTouches[0] && _initialTouches[1]) {
         NSArray *array = [touches allObjects];
+        NSTouch *firstTouch = [array objectAtIndex:0];
+        NSTouch *secondTouch = [array objectAtIndex:1];
+        if ([firstTouch.identity isEqual:_initialTouches[1].identity]) {
+            std::swap(firstTouch, secondTouch);
+        }
+
+        // A replacement finger must not overwrite one slot twice and leave
+        // the other slot pointing to an already released touch.
+        if (![firstTouch.identity isEqual:_initialTouches[0].identity] ||
+            ![secondTouch.identity isEqual:_initialTouches[1].identity]) {
+            [self cancelTracking];
+            return;
+        }
+
         [_oldTouches[0] release];
         [_oldTouches[1] release];
 
@@ -86,20 +108,8 @@
         [_currentTouches[1] release];
         [_currentTouchEvent release];
         
-        NSTouch *touch;
-        touch = [array objectAtIndex:0];
-        if ([touch.identity isEqual:_initialTouches[0].identity]) {
-            _currentTouches[0] = [touch retain];
-        } else {
-            _currentTouches[1] = [touch retain];
-        }
-        
-        touch = [array objectAtIndex:1];
-        if ([touch.identity isEqual:_initialTouches[0].identity]) {
-            _currentTouches[0] = [touch retain];
-        } else {
-            _currentTouches[1] = [touch retain];
-        }
+        _currentTouches[0] = [firstTouch retain];
+        _currentTouches[1] = [secondTouch retain];
         _currentTouchEvent = [event retain];
         
         if (!self.isTracking)
@@ -124,7 +134,7 @@
     
     NSSet *touches = [event touchesMatchingPhase:NSTouchPhaseTouching inView:self.view];
 
-    if(touches && touches.count == 0)
+    if(touches.count != 2)
     {
         self.modifiers = [event modifierFlags];
         [self cancelTracking];
@@ -137,11 +147,11 @@
 
 - (void)cancelTracking {
     if (self.isTracking) {
-        if (self.endTrackingAction) [NSApp sendAction:self.endTrackingAction to:self.view from:self];
         self.isTracking = NO;
-        [self releaseTouches];
-        [self releaseEvent];
+        if (self.endTrackingAction) [NSApp sendAction:self.endTrackingAction to:self.view from:self];
     }
+    [self releaseTouches];
+    [self releaseEvent];
 }
 
 - (void)magnifyWithEvent:(NSEvent *)event

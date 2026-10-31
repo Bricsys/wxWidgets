@@ -490,6 +490,10 @@ bool wxMiniFrame::CreateNonFocusing( wxWindow *parent, wxWindowID id, const wxSt
         m_minHeight = minHeight;
     
     wxFrame::Create( parent, id, title, pos, size, style, name );
+
+#ifndef __WXGTK4__
+    m_isDragMove = false;
+#endif
     
     gtk_window_set_accept_focus( GTK_WINDOW(m_widget), false );
     
@@ -546,6 +550,10 @@ bool wxMiniFrame::CreateNonFocusing( wxWindow *parent, wxWindowID id, const wxSt
     /* these are required for dragging the mini frame around */
     g_signal_connect (eventbox, "button_press_event",
                      G_CALLBACK (gtk_window_button_press_callback), this);
+#ifndef __WXGTK4__
+    g_signal_connect (eventbox, "button-release-event",
+                     G_CALLBACK (button_release_event), this);
+#endif
     g_signal_connect (eventbox, "motion_notify_event",
                      G_CALLBACK (gtk_window_motion_notify_callback), this);
     g_signal_connect (eventbox, "leave_notify_event",

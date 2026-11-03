@@ -444,6 +444,11 @@ wxModalEventLoop::wxModalEventLoop(WXWindow modalNativeWindow)
     m_modalNativeWindow = modalNativeWindow;
 }
 
+wxWindow *wxModalEventLoop::GetModalWindow() const
+{
+    return m_modalWindow;
+}
+
 // END move into a evtloop_osx.cpp
 
 #define OSX_USE_MODAL_SESSION 1

@@ -191,30 +191,19 @@ wxDialogBase::DoGetParentForDialog(wxDialogModality modality,
     if ( style & wxDIALOG_NO_PARENT )
         return NULL;
 
-#if 1 //Bricsys change (refs RM-48441)
+#if 1 //Bricsys change (refs RM-48441, RM-77573)
     // Treat the main window as a fallback rather than an explicit owner.
-#ifndef __WXMSW__
     if ( parent == wxApp::GetMainTopWindow() )
         parent = NULL;
-#endif //!__WXMSW__
     if ( parent )
         parent = CheckIfCanBeUsedAsParent(modality, wxGetTopLevelParent(parent));
 
-    // An active dialog can own another dialog even when it is modeless.
-    if ( !parent )
-    {
-        wxWindow* active = wxGetTopLevelParent(wxGetActiveWindow());
-        if ( wxDynamicCast(active, wxDialog) && active->IsShownOnScreen() )
-            parent = CheckIfCanBeUsedAsParent(modality, active);
-    }
-
-    // Prefer the main frame only when no modal loop is active.
+    // Prefer the modal loop's dialog, or fall back when no modal loop is active.
     if ( !parent )
     {
         // relies on ShowModal() running a wxModalEventLoop (GH-104) on all platforms
         wxModalEventLoop* evtLoop =
             dynamic_cast<wxModalEventLoop*>(wxEventLoopBase::GetActive());
-#ifdef __LINUX__
         // The modal loop's dialog remains an owner candidate even without focus.
         if ( evtLoop )
         {
@@ -222,10 +211,16 @@ wxDialogBase::DoGetParentForDialog(wxDialogModality modality,
             if ( wxDynamicCast(modalWindow, wxDialog) )
                 parent = CheckIfCanBeUsedAsParent(modality, modalWindow);
         }
-#endif //__LINUX__
-        if ( !evtLoop )
+        else
         {
-            parent = CheckIfCanBeUsedAsParent(modality, wxApp::GetMainTopWindow());
+#ifdef __WXGTK__
+            // An active dialog can own another dialog even when it is modeless.
+            wxWindow* active = wxGetTopLevelParent(wxGetActiveWindow());
+            if ( wxDynamicCast(active, wxDialog) && active->IsShownOnScreen() )
+                parent = CheckIfCanBeUsedAsParent(modality, active);
+#endif
+            if ( !parent )
+                parent = CheckIfCanBeUsedAsParent(modality, wxApp::GetMainTopWindow());
         }
     }
 #else // Bricsys change

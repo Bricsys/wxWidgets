@@ -24,6 +24,8 @@ public:
     wxModalEventLoop(wxWindow *modalWindow);
     wxModalEventLoop(WXWindow modalNativeWindow);
 
+    wxWindow *GetModalWindow() const;
+
 #ifdef __WXOSX_COCOA__
     // skip wxGUIEventLoop to avoid missing Enter/Exit notifications
     virtual int Run() wxOVERRIDE { return wxCFEventLoop::Run(); }

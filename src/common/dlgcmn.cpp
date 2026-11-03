@@ -192,9 +192,12 @@ wxDialogBase::DoGetParentForDialog(wxDialogModality modality,
         return NULL;
 
 #if 1 //Bricsys change (refs RM-48441, RM-77573)
+#ifndef __WXMSW__
     // Treat the main window as a fallback rather than an explicit owner.
     if ( parent == wxApp::GetMainTopWindow() )
         parent = NULL;
+#endif //!__WXMSW__
+
     if ( parent )
         parent = CheckIfCanBeUsedAsParent(modality, wxGetTopLevelParent(parent));
 

@@ -1488,6 +1488,57 @@ void wxEvtHandler::ProcessPendingEvents()
     // of this object any more
 }
 
+#if 1  // BS_CHANGES_ENABLED #76044
+bool wxEvtHandler::ProcessPendingEventsUntilNotOf(const std::function<bool(const wxEvent&)>& isAllowed)
+{
+    if (!wxTheApp)
+    {
+        wxLogDebug("No application object! Cannot process pending events!");
+        return false;
+    }
+
+    // keeps objects scheduled for deletion alive while handlers run, which
+    // also protects this handler (see wxAppConsoleBase::ProcessPendingEvents())
+    struct ProcessingGuard
+    {
+        ProcessingGuard() { ++wxTheApp->m_isPendingEventProcessing; }
+        ~ProcessingGuard() { --wxTheApp->m_isPendingEventProcessing; }
+    } guard;
+
+    for ( ;; )
+    {
+        wxENTER_CRIT_SECT( m_pendingEventsLock );
+
+        if ( !m_pendingEvents || m_pendingEvents->IsEmpty() )
+        {
+            wxLEAVE_CRIT_SECT( m_pendingEventsLock );
+            return false;
+        }
+
+        wxList::compatibility_iterator node = m_pendingEvents->GetFirst();
+        wxEvent* pEvent = static_cast<wxEvent *>(node->GetData());
+
+        if ( !isAllowed(*pEvent) )
+        {
+            wxLEAVE_CRIT_SECT( m_pendingEventsLock );
+            return true;
+        }
+
+        wxEventPtr event(pEvent);
+
+        // remove the event before processing it, see ProcessPendingEvents()
+        m_pendingEvents->Erase(node);
+
+        if ( m_pendingEvents->IsEmpty() )
+            wxTheApp->RemovePendingEventHandler(this);
+
+        wxLEAVE_CRIT_SECT( m_pendingEventsLock );
+
+        SafelyProcessEvent(*event);
+    }
+}
+#endif
+
 /* static */
 bool wxEvtHandler::ProcessEventIfMatchesId(const wxEventTableEntryBase& entry,
                                            wxEvtHandler *handler,

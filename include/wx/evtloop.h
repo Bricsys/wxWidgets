@@ -374,9 +374,12 @@ class WXDLLIMPEXP_CORE wxModalEventLoop : public wxGUIEventLoop
 {
 public:
     wxModalEventLoop(wxWindow *winModal)
+        : m_modalWindow(winModal)
     {
         m_windowDisabler = new wxWindowDisabler(winModal);
     }
+
+    wxWindow *GetModalWindow() const { return m_modalWindow; }
 
 protected:
     virtual void OnExit() wxOVERRIDE
@@ -388,6 +391,7 @@ protected:
     }
 
 private:
+    wxWindow *m_modalWindow;
     wxWindowDisabler *m_windowDisabler;
 };
 

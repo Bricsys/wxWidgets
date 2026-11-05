@@ -58,6 +58,10 @@ bool wxDialog::Create( wxWindow *parent,
     // all dialogs should have tab traversal enabled
     style |= wxTAB_TRAVERSAL;
 
+    // Bricsys change
+    parent = GetParentForModalDialog(parent, style);
+    // End Bricsys change
+
     return wxTopLevelWindow::Create(parent, id, title, pos, size, style, name);
 }
 
@@ -140,12 +144,18 @@ int wxDialog::ShowModal()
     // capture making it impossible to do anything in the modal dialog itself
     GTKReleaseMouseAndNotify();
 
+// Bricsys change
+// Resolve ownership during creation to keep the wx parent and native
+// transient owner consistent.
+#if 0
     wxWindow * const parent = GetParentForModalDialog();
     if ( parent )
     {
         gtk_window_set_transient_for( GTK_WINDOW(m_widget),
                                       GTK_WINDOW(parent->m_widget) );
     }
+#endif
+// End Bricsys change
 
 #if GTK_CHECK_VERSION(2,10,0)
     unsigned sigId = 0;

@@ -201,18 +201,17 @@ wxDialogBase::DoGetParentForDialog(wxDialogModality modality,
     if ( parent )
         parent = CheckIfCanBeUsedAsParent(modality, wxGetTopLevelParent(parent));
 
-    // Prefer the modal loop's dialog, or fall back when no modal loop is active.
+    // Prefer the modal loop's window, or fall back when no modal loop is active.
     if ( !parent )
     {
         // relies on ShowModal() running a wxModalEventLoop (GH-104) on all platforms
         wxModalEventLoop* evtLoop =
             dynamic_cast<wxModalEventLoop*>(wxEventLoopBase::GetActive());
-        // The modal loop's dialog remains an owner candidate even without focus.
+        // The modal loop's window remains an owner candidate even without focus.
         if ( evtLoop )
         {
-            wxWindow* modalWindow = evtLoop->GetModalWindow();
-            if ( wxDynamicCast(modalWindow, wxDialog) )
-                parent = CheckIfCanBeUsedAsParent(modality, modalWindow);
+            parent = CheckIfCanBeUsedAsParent(modality,
+                        wxGetTopLevelParent(evtLoop->GetModalWindow()));
         }
         else
         {

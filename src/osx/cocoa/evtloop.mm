@@ -444,10 +444,12 @@ wxModalEventLoop::wxModalEventLoop(WXWindow modalNativeWindow)
     m_modalNativeWindow = modalNativeWindow;
 }
 
+// Bricsys change
 wxWindow *wxModalEventLoop::GetModalWindow() const
 {
     return m_modalWindow;
 }
+// End Bricsys change
 
 // END move into a evtloop_osx.cpp
 

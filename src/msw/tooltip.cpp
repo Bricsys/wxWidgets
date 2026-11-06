@@ -35,6 +35,12 @@
 #include "wx/vector.h"
 #include "wx/msw/private.h"
 
+// Bricsys added
+#include "wx/dynlib.h"
+
+#include <windowsx.h>
+// End Bricsys added
+
 #ifndef TTTOOLINFO_V1_SIZE
     #define TTTOOLINFO_V1_SIZE 0x28
 #endif
@@ -180,6 +186,126 @@ SendTooltipMessageToAll(WXHWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ::SendMessage((HWND)hwnd, msg, wParam, lParam);
 }
 
+// Bricsys added
+// The shared tooltip control is created without an owner. In a system DPI
+// aware process with monitors using different DPIs, Windows may then map its
+// position using the scale of a monitor other than the one of the hovered
+// tool, so the tooltip appears far away from it. Making the tooltip owned by
+// the top-level window of the hovered tool avoids this. As Windows destroys
+// owned windows together with their owner, a CBT hook detaches the tooltip
+// before its owner gets destroyed. The owner may meanwhile have been
+// re-parented into another window, which DestroyWindow() then destroys without
+// a hook notification for the owner, so destroying any of its ancestors
+// detaches the tooltip too.
+static HWND gs_hwndOwnedToolTip = NULL;
+static HHOOK gs_hookToolTipOwner = NULL;
+
+static LRESULT CALLBACK
+wxToolTipOwnerCBTProc(int code, WPARAM wParam, LPARAM lParam)
+{
+    if ( code == HCBT_DESTROYWND && gs_hwndOwnedToolTip )
+    {
+        const HWND hwndDestroyed = (HWND)wParam;
+        for ( HWND hwnd = ::GetWindow(gs_hwndOwnedToolTip, GW_OWNER);
+              hwnd;
+              hwnd = ::GetWindow(hwnd, GW_OWNER) )
+        {
+            if ( hwnd == hwndDestroyed || ::IsChild(hwndDestroyed, hwnd) )
+            {
+                ::SetWindowLongPtr(gs_hwndOwnedToolTip, GWLP_HWNDPARENT, 0);
+                break;
+            }
+        }
+    }
+
+    return ::CallNextHookEx(gs_hookToolTipOwner, code, wParam, lParam);
+}
+
+// Windows doesn't scale per monitor aware windows, so a per monitor aware
+// tooltip is placed correctly without an owner. Check the tooltip window
+// itself: wx temporarily makes the thread system DPI aware around some common
+// dialogs, so the process awareness doesn't tell the one of the tooltip.
+static bool IsToolTipPerMonitorDPIAware(HWND hwndTT)
+{
+#if wxUSE_DYNLIB_CLASS
+    // DPI_AWARENESS_PER_MONITOR_AWARE, which older SDKs don't define.
+    const int wxDPI_AWARENESS_PER_MONITOR_AWARE = 2;
+
+    typedef WXDPI_AWARENESS_CONTEXT
+            (WINAPI *GetWindowDpiAwarenessContext_t)(HWND);
+    typedef int
+            (WINAPI *GetAwarenessFromDpiAwarenessContext_t)(WXDPI_AWARENESS_CONTEXT);
+    static GetWindowDpiAwarenessContext_t
+        s_pfnGetWindowDpiAwarenessContext = NULL;
+    static GetAwarenessFromDpiAwarenessContext_t
+        s_pfnGetAwarenessFromDpiAwarenessContext = NULL;
+    static bool s_initDone = false;
+
+    if ( !s_initDone )
+    {
+        wxLoadedDLL dllUser32("user32.dll");
+        wxDL_INIT_FUNC(s_pfn, GetWindowDpiAwarenessContext, dllUser32);
+        wxDL_INIT_FUNC(s_pfn, GetAwarenessFromDpiAwarenessContext, dllUser32);
+        s_initDone = true;
+    }
+
+    // Before Windows 10 1607 there is no per window awareness; keep owning
+    // the tooltip there.
+    if ( s_pfnGetWindowDpiAwarenessContext &&
+         s_pfnGetAwarenessFromDpiAwarenessContext )
+    {
+        const int awareness = s_pfnGetAwarenessFromDpiAwarenessContext(
+                                s_pfnGetWindowDpiAwarenessContext(hwndTT));
+        return awareness == wxDPI_AWARENESS_PER_MONITOR_AWARE;
+    }
+#else
+    wxUnusedVar(hwndTT);
+#endif // wxUSE_DYNLIB_CLASS
+
+    return false;
+}
+
+static void SetToolTipOwner(HWND hwndTT, HWND hwndOwner)
+{
+    if ( !hwndOwner || ::GetWindow(hwndTT, GW_OWNER) == hwndOwner )
+        return;
+
+    if ( IsToolTipPerMonitorDPIAware(hwndTT) )
+        return;
+
+    // The hook only sees the windows of the current thread.
+    const DWORD threadId = ::GetCurrentThreadId();
+    if ( ::GetWindowThreadProcessId(hwndTT, NULL) != threadId ||
+         ::GetWindowThreadProcessId(hwndOwner, NULL) != threadId )
+        return;
+
+    if ( !gs_hookToolTipOwner )
+    {
+        gs_hookToolTipOwner = ::SetWindowsHookEx(WH_CBT, wxToolTipOwnerCBTProc,
+                                                 NULL, threadId);
+        if ( !gs_hookToolTipOwner )
+        {
+            wxLogLastError(wxT("SetWindowsHookEx(WH_CBT)"));
+            return;
+        }
+    }
+
+    gs_hwndOwnedToolTip = hwndTT;
+    ::SetWindowLongPtr(hwndTT, GWLP_HWNDPARENT, (LONG_PTR)hwndOwner);
+}
+
+static void ResetToolTipOwner()
+{
+    if ( gs_hookToolTipOwner )
+    {
+        ::UnhookWindowsHookEx(gs_hookToolTipOwner);
+        gs_hookToolTipOwner = NULL;
+    }
+
+    gs_hwndOwnedToolTip = NULL;
+}
+// End Bricsys added
+
 // ============================================================================
 // implementation
 // ============================================================================
@@ -277,6 +403,10 @@ void wxToolTip::SetMaxWidth(int width)
 
 void wxToolTip::DeleteToolTipCtrl()
 {
+// Bricsys added
+    ResetToolTipOwner();
+// End Bricsys added
+
     if ( ms_hwndTT )
     {
         ::DestroyWindow((HWND)ms_hwndTT);
@@ -292,6 +422,19 @@ void wxToolTip::DeleteToolTipCtrl()
 /* static */
 WXHWND wxToolTip::GetToolTipCtrl()
 {
+// Bricsys added
+    // Windows destroys the tooltip with its owner if the CBT hook missed the
+    // owner destruction, e.g. if another hook didn't call CallNextHookEx().
+    // Don't keep using a dead, possibly reused, HWND. The registered tools are
+    // lost with it, but tooltips added afterwards work again.
+    if ( ms_hwndTT && !::IsWindow((HWND)ms_hwndTT) )
+    {
+        wxLogDebug(wxT("Tooltip control destroyed together with its owner."));
+        ResetToolTipOwner();
+        ms_hwndTT = (WXHWND)NULL;
+    }
+// End Bricsys added
+
     if ( !ms_hwndTT )
     {
         WXDWORD exflags = 0;
@@ -367,7 +510,23 @@ void wxToolTip::UpdateVisibility()
 /* static */
 void wxToolTip::RelayEvent(WXMSG *msg)
 {
-    (void)SendTooltipMessage(GetToolTipCtrl(), TTM_RELAYEVENT, msg);
+// Bricsys change
+    const HWND hwndTT = (HWND)GetToolTipCtrl();
+    (void)SendTooltipMessage(hwndTT, TTM_RELAYEVENT, msg);
+
+    if ( hwndTT && msg->message == WM_MOUSEMOVE && msg->hwnd )
+    {
+        TTHITTESTINFO hti;
+        wxZeroMemory(hti);
+        hti.hwnd = msg->hwnd;
+        hti.pt.x = GET_X_LPARAM(msg->lParam);
+        hti.pt.y = GET_Y_LPARAM(msg->lParam);
+        hti.ti.cbSize = TTTOOLINFO_V1_SIZE;
+
+        if ( SendTooltipMessage(hwndTT, TTM_HITTEST, &hti) )
+            SetToolTipOwner(hwndTT, ::GetAncestor(msg->hwnd, GA_ROOT));
+    }
+// End Bricsys change
 }
 
 // ----------------------------------------------------------------------------

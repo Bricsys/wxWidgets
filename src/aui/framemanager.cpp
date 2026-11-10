@@ -1270,6 +1270,13 @@ bool wxAuiManager::DetachPane(wxWindow* window)
                 }
 
                 p.window->Reparent(m_frame);
+#ifdef __APPLE__
+                // Stop layout events before freeing the floating frame's sizer:
+                // the frame can still receive native events until it is deleted.
+                if (wxAuiFloatingFrame* floatingFrame =
+                        wxDynamicCast(p.frame, wxAuiFloatingFrame))
+                    floatingFrame->GetAuiManager().UnInit();
+#endif
                 p.frame->SetSizer(NULL);
                 p.frame->Destroy();
                 p.frame = NULL;
@@ -2570,6 +2577,13 @@ void wxAuiManager::Update()
 
             // reparent to m_frame and destroy the pane
             p.window->Reparent(m_frame);
+#ifdef __APPLE__
+            // Destroy() defers deletion, so disconnect the floating manager
+            // before its cached sizer items become dangling pointers.
+            if (wxAuiFloatingFrame* floatingFrame =
+                    wxDynamicCast(p.frame, wxAuiFloatingFrame))
+                floatingFrame->GetAuiManager().UnInit();
+#endif
             p.frame->SetSizer(NULL);
             p.frame->Destroy();
             p.frame = NULL;

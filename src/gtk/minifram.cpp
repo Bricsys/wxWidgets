@@ -28,6 +28,12 @@
 #include "wx/gtk/private/gtk3-compat.h"
 #include "wx/gtk/private/backend.h"
 
+// Bricsys change
+#ifdef GDK_WINDOWING_X11
+    #include <gdk/gdkx.h>
+#endif
+// End Bricsys change
+
 //-----------------------------------------------------------------------------
 // data
 //-----------------------------------------------------------------------------
@@ -143,6 +149,34 @@ static gboolean expose_event(GtkWidget* widget, GdkEventExpose* gdk_event, wxMin
 }
 }
 
+// Bricsys change
+#if defined(__WXGTK3__) && !defined(__WXGTK4__)
+// Let the WM handle dragging on Wayland and X11 WMs that don't support client-driven moves (e.g. xwayland-satellite).
+static bool ShouldWMMoveWindow(GdkWindow* window)
+{
+    if (wxGTKImpl::IsWayland(window))
+        return true;
+
+#ifdef GDK_WINDOWING_X11
+    if (wxGTKImpl::IsX11(window))
+    {
+        static int cached = -1;
+        if (cached < 0)
+        {
+            GdkAtom atom =
+                gdk_atom_intern_static_string("_NET_MOVERESIZE_WINDOW");
+            cached = !gdk_x11_screen_supports_net_wm_hint(
+                        gdk_window_get_screen(window), atom);
+        }
+        return cached != 0;
+    }
+#endif // GDK_WINDOWING_X11
+
+    return false;
+}
+#endif
+// End Bricsys change
+
 //-----------------------------------------------------------------------------
 // "button_press_event" of m_mainWidget
 //-----------------------------------------------------------------------------
@@ -189,7 +223,9 @@ gtk_window_button_press_callback(GtkWidget* widget, GdkEventButton* gdk_event, w
 
 #ifdef __WXGTK3__
 #ifndef __WXGTK4__
-    if (wxGTKImpl::IsWayland(gdk_event->window))
+    // Bricsys change
+    if (ShouldWMMoveWindow(gdk_event->window))
+    // End Bricsys change
 #endif
     {
         gtk_window_begin_move_drag(GTK_WINDOW(win->m_widget),

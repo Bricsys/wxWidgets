@@ -80,6 +80,10 @@ bool wxDialog::Create( wxWindow *parent,
     // ...but not these styles
     style &= ~(wxYES | wxOK | wxNO); // | wxCANCEL
 
+    // Bricsys change
+    parent = GetParentForModalDialog(parent, style);
+    // End Bricsys change
+
     if ( !wxTopLevelWindow::Create( parent, id, title, pos, size, style, name ) )
         return false;
 
@@ -201,4 +205,3 @@ void wxDialog::EndModal(int retCode)
     if( GetParent() )
         GetParent()->Raise();
 }
-

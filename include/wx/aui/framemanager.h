@@ -575,6 +575,9 @@ protected:
     void OnHintFadeTimer(wxTimerEvent& evt);
     void OnFindManager(wxAuiManagerEvent& evt);
     void OnSysColourChanged(wxSysColourChangedEvent& event);
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+    void OnDPIChanged(wxDPIChangedEvent& event);
+#endif // !wxHAS_DPI_INDEPENDENT_PIXELS
 
 protected:
 
@@ -620,6 +623,11 @@ protected:
     wxByte m_hintFadeMax;       // maximum value of hint fade
 
     void* m_reserved;
+
+private:
+    // Reparent the pane window back to the managed window and destroy the
+    // floating frame containing it, which must be non-null.
+    void DestroyFloatingFrame(wxAuiPaneInfo& paneInfo);
 
 #ifndef SWIG
     wxDECLARE_EVENT_TABLE();

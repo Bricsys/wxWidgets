@@ -24,6 +24,10 @@ public:
     wxModalEventLoop(wxWindow *modalWindow);
     wxModalEventLoop(WXWindow modalNativeWindow);
 
+    // Bricsys change
+    wxWindow *GetModalWindow() const;
+    // End Bricsys change
+
 #ifdef __WXOSX_COCOA__
     // skip wxGUIEventLoop to avoid missing Enter/Exit notifications
     virtual int Run() wxOVERRIDE { return wxCFEventLoop::Run(); }

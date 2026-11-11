@@ -33,9 +33,6 @@ void wxDialog::Init()
 {
     m_modalLoop = NULL;
     m_modalShowing = false;
-    // Begin Bricsys change
-    m_useModalEventLoop = false;
-    // End Bricsys change 
 }
 
 wxDialog::wxDialog( wxWindow *parent,
@@ -57,6 +54,10 @@ bool wxDialog::Create( wxWindow *parent,
 
     // all dialogs should have tab traversal enabled
     style |= wxTAB_TRAVERSAL;
+
+    // Bricsys change
+    parent = GetParentForModalDialog(parent, style);
+    // End Bricsys change
 
     return wxTopLevelWindow::Create(parent, id, title, pos, size, style, name);
 }
@@ -140,12 +141,18 @@ int wxDialog::ShowModal()
     // capture making it impossible to do anything in the modal dialog itself
     GTKReleaseMouseAndNotify();
 
+// Bricsys change
+// Resolve ownership during creation to keep the wx parent and native
+// transient owner consistent.
+#if 0
     wxWindow * const parent = GetParentForModalDialog();
     if ( parent )
     {
         gtk_window_set_transient_for( GTK_WINDOW(m_widget),
                                       GTK_WINDOW(parent->m_widget) );
     }
+#endif
+// End Bricsys change
 
 #if GTK_CHECK_VERSION(2,10,0)
     unsigned sigId = 0;
@@ -175,15 +182,12 @@ int wxDialog::ShowModal()
 
     // Run modal dialog event loop.
     {
-        // Begin Bricsys change
-        if (m_useModalEventLoop) {
-            wxGUIEventLoopTiedPtr modal(&m_modalLoop, new wxModalEventLoop(this));
-            m_modalLoop->Run();
-        } else {
-            wxGUIEventLoopTiedPtr modal(&m_modalLoop, new wxGUIEventLoop());
-            m_modalLoop->Run();
-        }
-        // End Bricsys change
+        // begin BricsCAD change
+        // Always use wxModalEventLoop to enforce modality by disabling all other
+        // TLW, as the GTK grab is not sufficient when external GUI is involved.
+        wxGUIEventLoopTiedPtr modal(&m_modalLoop, new wxModalEventLoop(this));
+        // end BricsCAD change
+        m_modalLoop->Run();
     }
 
     g_signal_handler_disconnect(m_widget, handler_id);

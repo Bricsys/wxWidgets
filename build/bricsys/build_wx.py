@@ -203,6 +203,7 @@ def main():
             f'-DwxBUILD_SAMPLES=OFF '
             f'-DwxBUILD_TESTS=OFF '
             f'-DwxBUILD_INSTALL=ON '
+            f'-DwxBUILD_INSTALL_PDB=ON '
         )
         if PLATFORM == 'windows':
             cmd += f'-DCMAKE_GENERATOR_PLATFORM={args.arch} '

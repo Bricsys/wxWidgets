@@ -160,15 +160,10 @@ static bool ShouldWMMoveWindow(GdkWindow* window)
 #ifdef GDK_WINDOWING_X11
     if (wxGTKImpl::IsX11(window))
     {
-        static int cached = -1;
-        if (cached < 0)
-        {
-            GdkAtom atom =
-                gdk_atom_intern_static_string("_NET_MOVERESIZE_WINDOW");
-            cached = !gdk_x11_screen_supports_net_wm_hint(
-                        gdk_window_get_screen(window), atom);
-        }
-        return cached != 0;
+        GdkAtom atom =
+            gdk_atom_intern_static_string("_NET_MOVERESIZE_WINDOW");
+        return !gdk_x11_screen_supports_net_wm_hint(
+                    gdk_window_get_screen(window), atom);
     }
 #endif // GDK_WINDOWING_X11
 

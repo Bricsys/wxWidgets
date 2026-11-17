@@ -253,7 +253,12 @@ bool wxSpinCtrlGenericBase::Create(wxWindow *parent,
 #endif
 
     m_textCtrl   = new wxSpinCtrlTextGeneric(this, DoValueToText(m_value), style);
+#ifdef __WXGTK3__
+    // Preserve GTK theme padding instead of forcing borderless button styling.
+    m_spinButton = new wxSpinCtrlButtonGeneric(this, style);
+#else
     m_spinButton = new wxSpinCtrlButtonGeneric(this, styleWithoutBorder);
+#endif
 
     // ensure correct start value also if non-zero
     m_spinButton->SetValue( m_value );

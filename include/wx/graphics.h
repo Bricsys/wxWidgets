@@ -944,6 +944,8 @@ protected:
                                          const wxGraphicsBrush& backgroundBrush);
 
 private:
+    friend class wxGCDCImpl;
+
     // The associated window, if any, i.e. if one was passed directly to
     // Create() or the associated window of the wxDC this context was created
     // from.

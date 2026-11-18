@@ -1252,7 +1252,11 @@ void wxGCDCImpl::DoDrawText(const wxString& str, wxCoord x, wxCoord y)
     wxCompositionMode curMode = m_graphicContext->GetCompositionMode();
     m_graphicContext->SetCompositionMode(wxCOMPOSITION_OVER);
 
-    if ( m_backgroundMode != wxBRUSHSTYLE_TRANSPARENT )
+    if ( m_backgroundMode == wxBRUSHSTYLE_TRANSPARENT )
+    {
+        m_graphicContext->DrawText(str, x, y);
+    }
+    else
     {
         // Match the rounded DC extents, not the fractional graphics extents.
         const wxSize size = GetOwner()->GetTextExtent(str);
@@ -1264,10 +1268,6 @@ void wxGCDCImpl::DoDrawText(const wxString& str, wxCoord x, wxCoord y)
         m_graphicContext->DrawText(str, x, y);
         m_graphicContext->SetBrush(formerBrush);
         m_graphicContext->SetPen(formerPen);
-    }
-    else
-    {
-        m_graphicContext->DrawText(str, x, y);
     }
 
     m_graphicContext->SetCompositionMode(curMode);

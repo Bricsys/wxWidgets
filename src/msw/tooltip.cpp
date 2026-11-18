@@ -235,27 +235,28 @@ static bool IsToolTipPerMonitorDPIAware(HWND hwndTT)
             (WINAPI *GetWindowDpiAwarenessContext_t)(HWND);
     typedef int
             (WINAPI *GetAwarenessFromDpiAwarenessContext_t)(WXDPI_AWARENESS_CONTEXT);
-    static GetWindowDpiAwarenessContext_t
-        s_pfnGetWindowDpiAwarenessContext = NULL;
-    static GetAwarenessFromDpiAwarenessContext_t
-        s_pfnGetAwarenessFromDpiAwarenessContext = NULL;
-    static bool s_initDone = false;
-
-    if ( !s_initDone )
+    static const struct DPIAwarenessFunctions
     {
-        wxLoadedDLL dllUser32("user32.dll");
-        wxDL_INIT_FUNC(s_pfn, GetWindowDpiAwarenessContext, dllUser32);
-        wxDL_INIT_FUNC(s_pfn, GetAwarenessFromDpiAwarenessContext, dllUser32);
-        s_initDone = true;
-    }
+        DPIAwarenessFunctions()
+        {
+            wxLoadedDLL dllUser32("user32.dll");
+            wxDL_INIT_FUNC(pfn, GetWindowDpiAwarenessContext, dllUser32);
+            wxDL_INIT_FUNC(pfn, GetAwarenessFromDpiAwarenessContext, dllUser32);
+        }
+
+        GetWindowDpiAwarenessContext_t pfnGetWindowDpiAwarenessContext;
+        GetAwarenessFromDpiAwarenessContext_t
+            pfnGetAwarenessFromDpiAwarenessContext;
+    } s_functions;
 
     // Before Windows 10 1607 there is no per window awareness; keep owning
     // the tooltip there.
-    if ( s_pfnGetWindowDpiAwarenessContext &&
-         s_pfnGetAwarenessFromDpiAwarenessContext )
+    if ( s_functions.pfnGetWindowDpiAwarenessContext &&
+         s_functions.pfnGetAwarenessFromDpiAwarenessContext )
     {
-        const int awareness = s_pfnGetAwarenessFromDpiAwarenessContext(
-                                s_pfnGetWindowDpiAwarenessContext(hwndTT));
+        const int awareness =
+            s_functions.pfnGetAwarenessFromDpiAwarenessContext(
+                s_functions.pfnGetWindowDpiAwarenessContext(hwndTT));
         return awareness == wxDPI_AWARENESS_PER_MONITOR_AWARE;
     }
 #else

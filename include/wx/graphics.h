@@ -944,6 +944,7 @@ protected:
                                          const wxGraphicsBrush& backgroundBrush);
 
 private:
+    // wxGCDCImpl must preserve the graphics state when drawing opaque text.
     friend class wxGCDCImpl;
 
     // The associated window, if any, i.e. if one was passed directly to

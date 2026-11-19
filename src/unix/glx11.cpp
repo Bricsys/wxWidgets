@@ -27,6 +27,8 @@
 #include "wx/glcanvas.h"
 #include <GL/glx.h>
 
+#include "wx/unix/private/x11ptr.h"
+
 // IRIX headers call this differently
 #ifdef __SGI__
     #ifndef GLX_SAMPLE_BUFFERS_ARB
@@ -711,17 +713,10 @@ static bool InitXVisualInfo(const wxGLAttributes& dispAttrs,
 /* static */
 bool wxGLCanvasBase::IsDisplaySupported(const wxGLAttributes& dispAttrs)
 {
-    GLXFBConfig *fbc = NULL;
-    XVisualInfo *vi = NULL;
+    wxX11Ptr<GLXFBConfig> fbc;
+    wxX11Ptr<XVisualInfo> vi;
 
-    bool isSupported = InitXVisualInfo(dispAttrs, &fbc, &vi);
-
-    if ( fbc )
-        XFree(fbc);
-    if ( vi )
-        XFree(vi);
-
-    return isSupported;
+    return InitXVisualInfo(dispAttrs, fbc.Out(), vi.Out());
 }
 
 /* static */

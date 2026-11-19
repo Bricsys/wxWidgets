@@ -64,7 +64,7 @@ def main():
     # Apply conditional default
     if args.cmake_generator is None:
         if args.platform == 'windows':
-            args.cmake_generator = f'"Visual Studio 17"'
+            args.cmake_generator = f'"Visual Studio 18"'
         elif args.platform == 'linux':
             args.cmake_generator = f'"Ninja"'
         else:

@@ -919,6 +919,9 @@ protected:
     wxDouble m_width,
              m_height;
 
+    // wxGCDCImpl saves and restores m_brush and m_pen when drawing opaque text.
+    friend class wxGCDCImpl;
+
     wxGraphicsPen m_pen;
     wxGraphicsBrush m_brush;
     wxGraphicsFont m_font;
@@ -944,9 +947,6 @@ protected:
                                          const wxGraphicsBrush& backgroundBrush);
 
 private:
-    // wxGCDCImpl must preserve the graphics state when drawing opaque text.
-    friend class wxGCDCImpl;
-
     // The associated window, if any, i.e. if one was passed directly to
     // Create() or the associated window of the wxDC this context was created
     // from.

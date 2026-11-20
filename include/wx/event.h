@@ -34,6 +34,10 @@
 #include "wx/any.h"
 #include "wx/vector.h"
 
+#if 1  // BS_CHANGES_ENABLED #76044
+#include <functional>
+#endif
+
 #include "wx/meta/convertible.h"
 #include "wx/meta/removeref.h"
 
@@ -3827,6 +3831,14 @@ public:
 
     void ProcessPendingEvents();
         // NOTE: uses ProcessEvent()
+
+#if 1  // BS_CHANGES_ENABLED #76044
+    // Bricsys addition: processes this handler's pending events in order for
+    // as long as isAllowed() accepts the next one. Returns true as soon as an
+    // event not accepted by isAllowed() is found (it stays queued, as do all
+    // events behind it), false if all pending events were processed.
+    bool ProcessPendingEventsUntilNotOf(const std::function<bool(const wxEvent&)>& isAllowed);
+#endif
 
     void DeletePendingEvents();
 

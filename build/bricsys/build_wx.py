@@ -53,7 +53,8 @@ def main():
     parser.add_argument('--platform', required='True', help='Platform: windows, linux, mac')
     parser.add_argument('--arch', default='x64', help='Windows arch: x64 or Win32 (ignored on non-Windows)')
     parser.add_argument('--toolset', help='Windows Visual Studio toolset: v143 or v145 (ignored on non-Windows)')
-    parser.add_argument('--cmake_generator', help='The CMake Generator to use (defaults to CMAKE_GENERATOR environment variable)', default=os.environ.get("CMAKE_GENERATOR", None))
+    cmake_generator_envvar = os.environ.get("CMAKE_GENERATOR", None)
+    parser.add_argument('--cmake_generator', help='The CMake Generator to use (defaults to CMAKE_GENERATOR environment variable)', default=cmake_generator_envvar and f'"{cmake_generator_envvar}"')
     parser.add_argument('--cmake_config_args', help='Extra cmake configure arguments')
     parser.add_argument('--build_type', default='all', help='Build type: all, release, debug, release_debug')
     parser.add_argument('--wx_src_dir', default='../../', help='Wx source directory (default: qt/src)')
@@ -65,11 +66,11 @@ def main():
     # Apply conditional default
     if args.cmake_generator is None:
         if args.platform == 'windows':
-            args.cmake_generator = f'Visual Studio 17'
+            args.cmake_generator = f'"Visual Studio 17"'
         elif args.platform == 'linux':
-            args.cmake_generator = f'Ninja'
+            args.cmake_generator = f'"Ninja"'
         else:
-            args.cmake_generator = f'Unix Makefiles'
+            args.cmake_generator = f'"Unix Makefiles"'
 
     # Configurable Constants
     WXGIT_REPO_URL = 'git@github.com:Bricsys/wxWidgets.git'
@@ -181,7 +182,7 @@ def main():
         """Build the cmake configure command. build_type is used for single-config generators."""
         cmd = (
             f'{CMAKE_SOURCE_PATH} '
-            f'-G "{CMAKE_GENERATOR}" '
+            f'-G {CMAKE_GENERATOR} '
             f'--install-prefix="{install_dir}" '
             f'"{SRC_DIR}" '
             f'-C "{SRC_DIR}/build/bricsys/toolchain.cmake" '
@@ -238,6 +239,7 @@ def main():
         print(f"PLATFORM: {PLATFORM}")
         if PLATFORM == 'windows':
             print(f"ARCH: {args.arch}")
+            print(f"TOOLSET: {args.toolset}")
         print(f"WX REPO URL: {WXGIT_REPO_URL}")
         print(f"SRC DIR: {SRC_DIR}")
         for label, build_dir, install_dir in build_types_info:

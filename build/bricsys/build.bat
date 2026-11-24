@@ -15,10 +15,10 @@ set PYTHON_BUILD_TYPE=%BUILD_TYPE%
 if "%BUILD_TYPE%" == "release" set PYTHON_BUILD_TYPE=release_debug
 
 if "%ACTION_TYPE%" == "generate" (
-    python build/bricsys/build_wx.py --wx_src_dir=. --wx_install_dir=./install_bsys --platform=windows --action=generate
+    python build/bricsys/build_wx.py --wx_src_dir=. --wx_build_dir=./build_bsys --wx_install_dir=./install_bsys --platform=windows --arch=x64 --toolset=v143 --action=generate --cmake_config_args="-DCMAKE_SYSTEM_VERSION=10.0.19041.0"
 )
 
 if "%ACTION_TYPE%" == "build" (
-    python build/bricsys/build_wx.py --wx_src_dir=. --wx_install_dir=./install_bsys --platform=windows --action=build --build_type=%PYTHON_BUILD_TYPE%
+    python build/bricsys/build_wx.py --wx_src_dir=. --wx_build_dir=./build_bsys --wx_install_dir=./install_bsys --platform=windows --action=build --build_type=%PYTHON_BUILD_TYPE%
 )
 

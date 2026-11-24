@@ -97,6 +97,8 @@ private:
 
     static wxVector<wxDialog*> s_modalStack;
 #if wxOSX_USE_COCOA
+    void OSXDetachFromParentWindow();
+
     static wxVector<bool> s_modalWorksStack;
 #endif
 };

@@ -45,6 +45,14 @@ void wxDialog::EndWindowModal()
     [GetWXWindow() orderOut:GetWXWindow()];
 }
 
+void wxDialog::OSXDetachFromParentWindow()
+{
+    // A prior Show() can have attached this dialog as a native child.
+    // An app-modal dialog must be able to move to another Space on its own.
+    NSWindow* window = GetWXWindow();
+    [[window parentWindow] removeChildWindow:window];
+}
+
 bool wxDialog::OSXGetWorksWhenModal()
 {
     bool worksWhenModal = false;

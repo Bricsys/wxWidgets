@@ -163,6 +163,10 @@ int wxDialog::ShowModal()
 
     m_modality = wxDIALOG_MODALITY_APP_MODAL;
 
+#if wxOSX_USE_COCOA
+    OSXDetachFromParentWindow();
+#endif
+
     Show();
 
     wxModalEventLoop modalLoop(this);
